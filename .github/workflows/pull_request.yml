@@ -1,0 +1,28 @@
+name: Supabase PR Lint & Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/**'
+
+jobs:
+  lint-database:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase (ephemeral test instance)
+        run: supabase start
+
+      - name: Verify Migrations & Database Lint
+        run: |
+          supabase db reset
+          supabase db lint

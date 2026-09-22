@@ -1,0 +1,28 @@
+name: Supabase Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/**' # Draait enkel als er database/infrastructuur wijzigingen zijn
+
+jobs:
+  deploy-database:
+    runs-on: ubuntu-latest
+    environment: production # Vertelt de workflow om de Environment secrets te gebruiken
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+          
+      - name: Push migrations to production
+        run: supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
