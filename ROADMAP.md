@@ -33,3 +33,19 @@
 - **Architectuur / Oplossingsrichting**:
   - *Optie A (OAuth Redirect State)*: De `invite_code` behouden in de OAuth handshake via redirect parameters en in de `handle_new_user()` trigger verwerken.
   - *Optie B (Onboarding Claim Scherm)*: Indien een nieuw Google-account inlogt zonder licenties, leidt de Hub hem direct naar een tussenscherm *"Koppel je uitnodigingscode"* alvorens het dashboard te tonen.
+
+### 3. CI/CD: Automatische Flutter Web Deployment naar one.com via SFTP
+- **Doel**: Bij elke release of push naar `main` bouwt GitHub Actions de Flutter Web app (`flutter build web --release`) en uploadt de statische distributie via SFTP naar de one.com server (bijv. hoofddomein of `hub.jouwdomein.com`).
+- **Benodigdheden**:
+  - GitHub Secrets voor SFTP (`ONE_SFTP_SERVER`, `ONE_SFTP_USER`, `ONE_SFTP_PASSWORD`, `ONE_REMOTE_PATH`).
+  - `.htaccess` bestand in de web root voor correcte Apache URL-rewriting (voorkomt 404-errors bij direct refreshen van client-side routes zoals `/dashboard`).
+  - GitHub Actions workflowbestand `.github/workflows/deploy_web.yml`.
+
+### 4. Documentatie: Repository README & Beheerdershandleiding
+- **README.md (Developer Onboarding)**:
+  - Overzicht van de Hub & Spoke ecosysteem architectuur.
+  - Lokale installatie- en opstartinstructies (Supabase CLI, Flutter, migraties draaien, seed data).
+  - CI/CD overzicht (Supabase DB pushes & Web hosting deploy).
+- **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`)**:
+  - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
+  - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
