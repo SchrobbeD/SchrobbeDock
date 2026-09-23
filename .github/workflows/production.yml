@@ -1,19 +1,21 @@
 name: Supabase Production Deployment
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'supabase/**' # Draait enkel als er database/infrastructuur wijzigingen zijn
+  workflow_dispatch: # Handmatige trigger via GitHub Actions tab
+  # Uncomment onderstaande regels zodra de productie secrets geconfigureerd zijn in GitHub:
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'supabase/**'
 
 jobs:
   deploy-database:
     runs-on: ubuntu-latest
-    environment: production # Vertelt de workflow om de Environment secrets te gebruiken
+    environment: production
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
