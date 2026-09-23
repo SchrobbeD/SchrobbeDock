@@ -2,6 +2,7 @@
 
 ## Status Laatste Sessie
 - **Codebase**: Hub App (Flutter) + Supabase configuratie & migraties succesvol gecommit en gepusht naar `main`.
+- **MFA Recovery**: Admin 2FA Reset functionaliteit geïmplementeerd ([20260923223000_admin_mfa_reset.sql](file:///c:/Users/robbe/Documents/SchrobbeDock/supabase/migrations/20260923223000_admin_mfa_reset.sql)) inclusief Gebruikers- en 2FA-beheertab in de Hub ([admin_invites_screen.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/screens/admin_invites_screen.dart)).
 - **Lokale omgeving**: `supabase stop` uitgevoerd; lokale containers staan netjes uit.
 - **GitHub Actions**: 
   - `production.yml` faalt momenteel omdat de GitHub Secrets (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`) van het productie-project nog ingesteld moeten worden (of de workflow tijdelijk gedisabled moet worden tot productie gewenst is).
