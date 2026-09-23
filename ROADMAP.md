@@ -17,7 +17,7 @@
 
 ## Eerstvolgende Punten
 
-### Nieuwe Feature: Centraal Probleem- & Feedbackmeldsysteem
+### 1. Nieuwe Feature: Centraal Probleem- & Feedbackmeldsysteem
 - **Doel**: Gebruikers moeten vanuit **elke app** (en de centrale Hub) laagdrempelig een probleem, bug of suggestie kunnen melden.
 - **Architectuur (Hub & Spoke)**:
   - **Database (Supabase)**:
@@ -26,3 +26,10 @@
   - **Frontend / Clients**:
     - Universele/modulaire Flutter feedback modal/widget die eenvoudig in elke app (Spoke) geïmporteerd kan worden.
     - Beheer-/overzichtsscherm in de centrale Hub voor admins.
+
+### 2. Toekomstige Feature: Google OAuth Registratie via Uitnodigingscode
+- **Probleem**: Momenteel ondersteunt het registratiescherm (`/register`) uitsluitend e-mail + wachtwoord. Als een nieuwe gebruiker via een uitnodigingslink binnenkomt en kiest voor Google, ontbreekt de koppeling tussen de invite code en het nieuwe OAuth-account.
+- **Doel**: Een uitgenodigde gebruiker kan op `/register` kiezen tussen *"Registreren met Wachtwoord"* óf *"Aanmelden met Google"*, waarbij de licenties uit de uitnodiging direct en automatisch worden toegekend aan het Google-profiel.
+- **Architectuur / Oplossingsrichting**:
+  - *Optie A (OAuth Redirect State)*: De `invite_code` behouden in de OAuth handshake via redirect parameters en in de `handle_new_user()` trigger verwerken.
+  - *Optie B (Onboarding Claim Scherm)*: Indien een nieuw Google-account inlogt zonder licenties, leidt de Hub hem direct naar een tussenscherm *"Koppel je uitnodigingscode"* alvorens het dashboard te tonen.
