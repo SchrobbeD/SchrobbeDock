@@ -1,13 +1,12 @@
 name: Supabase Production Deployment
 
 on:
-  workflow_dispatch: # Handmatige trigger via GitHub Actions tab
-  # Uncomment onderstaande regels zodra de productie secrets geconfigureerd zijn in GitHub:
-  # push:
-  #   branches:
-  #     - main
-  #   paths:
-  #     - 'supabase/**'
+  workflow_dispatch: # Ook handmatig te triggeren
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/**'
 
 jobs:
   deploy-database:

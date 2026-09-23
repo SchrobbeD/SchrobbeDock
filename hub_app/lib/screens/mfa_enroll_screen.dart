@@ -44,7 +44,12 @@ class _MfaEnrollScreenState extends ConsumerState<MfaEnrollScreen> {
     try {
       final supabase = ref.read(supabaseClientProvider);
       
-      // Controleer bestaande factoren
+      // 1. Ruim eventuele afgebroken / onbevestigde factoren van eerdere sessies op
+      try {
+        await supabase.rpc('cleanup_unverified_mfa_factors');
+      } catch (_) {}
+
+      // 2. Controleer of er al een geverifieerde factor is
       final factors = await supabase.auth.mfa.listFactors();
       for (final factor in factors.totp) {
         if (factor.status.name == 'verified') {
@@ -52,11 +57,6 @@ class _MfaEnrollScreenState extends ConsumerState<MfaEnrollScreen> {
             context.go('/mfa/verify');
             return;
           }
-        } else {
-          // Ruim afgebroken / onbevestigde factoren op zodat enroll niet faalt
-          try {
-            await supabase.auth.mfa.unenroll(factor.id);
-          } catch (_) {}
         }
       }
 
