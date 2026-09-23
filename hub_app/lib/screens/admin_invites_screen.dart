@@ -56,6 +56,7 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
           .select('''
             id,
             code,
+            recipient_name,
             is_used,
             expires_at,
             created_at,
@@ -176,8 +177,26 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
     return 'DOCK-$part1-$part2';
   }
 
+  String _buildInviteMessage(String code, String? recipientName) {
+    final origin = Uri.base.origin;
+    final hasHash = Uri.base.toString().contains('/#/');
+    final registerUrl = hasHash ? '$origin/#/register?code=$code' : '$origin/register?code=$code';
+    final greeting = (recipientName != null && recipientName.isNotEmpty)
+        ? 'Beste $recipientName,'
+        : 'Hallo,';
+
+    return '''$greeting
+
+Je bent uitgenodigd voor SchrobbeDock!
+Via onderstaande link kun je direct je account aanmaken:
+$registerUrl
+
+Uitnodigingscode: $code''';
+  }
+
   void _showCreateInviteDialog() {
     final codeController = TextEditingController(text: _generateRandomCode());
+    final recipientController = TextEditingController();
     final selectedAppIds = <String>{};
     int validityDays = 14;
 
@@ -199,6 +218,17 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          TextField(
+                            controller: recipientController,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText: 'Bestemd voor (naam / referentie - optioneel)',
+                              hintText: 'bv. Jan Jansen of Klant XYZ',
+                              prefixIcon: Icon(Icons.person_outline),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           TextField(
                             controller: codeController,
                             textCapitalization: TextCapitalization.characters,
@@ -288,6 +318,7 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
                           : () async {
                               final supabase = ref.read(supabaseClientProvider);
                               final code = codeController.text.trim();
+                              final recipientName = recipientController.text.trim();
                               final expiresAt = DateTime.now().add(Duration(days: validityDays));
 
                               try {
@@ -295,6 +326,7 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
                                     .from('invitations')
                                     .insert({
                                       'code': code,
+                                      'recipient_name': recipientName.isEmpty ? null : recipientName,
                                       'expires_at': expiresAt.toIso8601String(),
                                     })
                                     .select('id')
@@ -318,7 +350,10 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
                                 if (ctx.mounted) {
                                   Navigator.of(ctx).pop();
                                   _loadInvitations();
-                                  _showCodeCreatedSuccessDialog(code);
+                                  _showCodeCreatedSuccessDialog(
+                                    code,
+                                    recipientName.isEmpty ? null : recipientName,
+                                  );
                                 }
                               } catch (e) {
                                 if (ctx.mounted) {
@@ -340,7 +375,12 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
     );
   }
 
-  void _showCodeCreatedSuccessDialog(String code) {
+  void _showCodeCreatedSuccessDialog(String code, String? recipientName) {
+    final inviteMessage = _buildInviteMessage(code, recipientName);
+    final origin = Uri.base.origin;
+    final hasHash = Uri.base.toString().contains('/#/');
+    final registerUrl = hasHash ? '$origin/#/register?code=$code' : '$origin/register?code=$code';
+
     showDialog(
       context: context,
       builder: (ctx) {
@@ -349,50 +389,90 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
             children: [
               Icon(Icons.check_circle, color: Colors.green),
               SizedBox(width: 8),
-              Text('Uitnodigingscode Aangemaakt!'),
+              Text('Uitnodiging Aangemaakt!'),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Deel deze code met de nieuwe gebruiker:'),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: SelectableText(
-                        code,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (recipientName != null && recipientName.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.person, size: 18, color: Colors.blueGrey),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Bestemd voor: $recipientName',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      ),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.copy),
-                      tooltip: 'Kopieer code',
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: code));
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(content: Text('Code gekopieerd!')),
-                        );
-                      },
-                    ),
+                    const SizedBox(height: 12),
                   ],
-                ),
+                  const Text(
+                    'Kopieer het volledige bericht of alleen de link/code:',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: SelectableText(
+                      inviteMessage,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.icon(
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('Kopieer Volledig Bericht'),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: inviteMessage));
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('Volledig bericht gekopieerd!')),
+                          );
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.link, size: 16),
+                        label: const Text('Kopieer Link'),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: registerUrl));
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('Registratielink gekopieerd!')),
+                          );
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.vpn_key, size: 16),
+                        label: const Text('Kopieer Code'),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: code));
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('Code gekopieerd!')),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
           actions: [
-            FilledButton(
+            TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('Sluiten'),
             ),
@@ -512,6 +592,7 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
       itemBuilder: (context, index) {
         final invite = _invitations[index];
         final code = invite['code'] as String? ?? '';
+        final recipientName = invite['recipient_name'] as String?;
         final isUsed = invite['is_used'] as bool? ?? false;
         final expiresAtRaw = invite['expires_at'] as String?;
         final expiresAt = expiresAtRaw != null ? DateTime.tryParse(expiresAtRaw) : null;
@@ -557,6 +638,22 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (recipientName != null && recipientName.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            const Icon(Icons.person, size: 16, color: Colors.blueGrey),
+                            const SizedBox(width: 4),
+                            Text(
+                              recipientName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                       Row(
                         children: [
                           SelectableText(
@@ -575,6 +672,17 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
                               Clipboard.setData(ClipboardData(text: code));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Code gekopieerd!')),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.share, size: 16),
+                            tooltip: 'Kopieer uitnodigingsbericht',
+                            onPressed: () {
+                              final msg = _buildInviteMessage(code, recipientName);
+                              Clipboard.setData(ClipboardData(text: msg));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Uitnodigingsbericht gekopieerd!')),
                               );
                             },
                           ),

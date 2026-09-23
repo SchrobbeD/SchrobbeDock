@@ -62,26 +62,39 @@ final routerProvider = Provider<GoRouter>((ref) {
       final currentLevel = aal.currentLevel?.name ?? 'aal1';
       final nextLevel = aal.nextLevel?.name ?? 'aal1';
 
-      // Geval A: Nog geen MFA factor geregistreerd -> verplicht instellen
-      if (currentLevel == 'aal1' && nextLevel == 'aal1') {
-        if (path != '/mfa/enroll') {
-          return '/mfa/enroll';
+      final user = session.user;
+      final provider = user.appMetadata['provider'] as String? ?? 'email';
+      final isGoogleUser = provider == 'google';
+      final isAdminRoute = path.startsWith('/admin');
+
+      // Hybride MFA Beleid:
+      // - Verplicht voor e-mail/wachtwoord gebruikers (!isGoogleUser)
+      // - Verplicht voor iedereen die beheerderstaken uitvoert (isAdminRoute)
+      // - Verplicht indien een gebruiker reeds een TOTP factor gekoppeld heeft (nextLevel == 'aal2')
+      final requiresMfa = !isGoogleUser || isAdminRoute || nextLevel == 'aal2';
+
+      if (requiresMfa) {
+        // Geval A: Nog geen MFA factor geregistreerd -> verplicht instellen
+        if (currentLevel == 'aal1' && nextLevel == 'aal1') {
+          if (path != '/mfa/enroll') {
+            return '/mfa/enroll';
+          }
+          return null;
         }
-        return null;
+
+        // Geval B: Factor geregistreerd, maar sessie vereist nog 2FA challenge
+        if (currentLevel == 'aal1' && nextLevel == 'aal2') {
+          if (path != '/mfa/verify') {
+            return '/mfa/verify';
+          }
+          return null;
+        }
       }
 
-      // Geval B: Factor geregistreerd, maar sessie vereist nog 2FA challenge
-      if (currentLevel == 'aal1' && nextLevel == 'aal2') {
-        if (path != '/mfa/verify') {
-          return '/mfa/verify';
-        }
-        return null;
-      }
-
-      // Geval C: Volledig geauthenticeerd met aal2
-      if (currentLevel == 'aal2') {
-        // Indien op auth of MFA schermen, stuur door naar dashboard
-        if (isPublicRoute || path.startsWith('/mfa')) {
+      // Geval C: Volledig geauthenticeerd of vrijgestelde Google gebruiker
+      if (currentLevel == 'aal2' || isGoogleUser) {
+        // Indien op auth of voltooide MFA schermen, stuur door naar dashboard
+        if (isPublicRoute || (path.startsWith('/mfa') && currentLevel == 'aal2')) {
           return '/dashboard';
         }
       }

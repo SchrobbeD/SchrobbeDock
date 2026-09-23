@@ -392,8 +392,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 prefixIcon: Icon(Icons.phone_outlined),
                                 border: OutlineInputBorder(),
                               ),
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty ? 'Verplicht' : null,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Telefoonnummer is verplicht';
+                                }
+                                final clean = v.trim();
+                                final validCharsRegex = RegExp(r'^[+]?[0-9\s\-\.\(\)]+$');
+                                if (!validCharsRegex.hasMatch(clean)) {
+                                  return 'Ongeldige tekens';
+                                }
+                                final digitsOnly = clean.replaceAll(RegExp(r'\D'), '');
+                                if (digitsOnly.length < 8 || digitsOnly.length > 15) {
+                                  return 'Geldig nummer vereist (min. 8 cijfers)';
+                                }
+                                return null;
+                              },
                             ),
                           ),
                         ],

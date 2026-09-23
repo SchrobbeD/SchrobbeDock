@@ -221,6 +221,11 @@ class _MfaVerifyScreenState extends ConsumerState<MfaVerifyScreen> {
                               border: OutlineInputBorder(),
                               counterText: '',
                             ),
+                            onChanged: (val) {
+                              if (val.trim().length == 6 && !_isVerifying) {
+                                _verifyChallenge();
+                              }
+                            },
                             onFieldSubmitted: (_) => _verifyChallenge(),
                           ),
                           const SizedBox(height: 24),

@@ -302,6 +302,11 @@ class _MfaEnrollScreenState extends ConsumerState<MfaEnrollScreen> {
                               border: OutlineInputBorder(),
                               counterText: '',
                             ),
+                            onChanged: (val) {
+                              if (val.trim().length == 6 && !_isVerifying) {
+                                _verifyAndActivate();
+                              }
+                            },
                             onFieldSubmitted: (_) => _verifyAndActivate(),
                           ),
                           const SizedBox(height: 20),
