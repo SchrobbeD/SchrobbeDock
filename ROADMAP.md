@@ -14,6 +14,10 @@
 - **CI/CD Web Deployment (one.com)**:
   - `.htaccess` toegevoegd in [hub_app/web/.htaccess](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/web/.htaccess) voor Apache URL-rewriting (voorkomt 404-errors bij SPA routing).
   - GitHub Actions workflow [.github/workflows/deploy_web.yml](file:///c:/Users/robbe/Documents/SchrobbeDock/.github/workflows/deploy_web.yml) met `wlixcc/SFTP-Deploy-Action@v1.2.6` geconfigureerd, succesvol getest en live gedeployd naar het one.com SFTP cluster (`ssh.c49x8am1a.service.one`).
+- **Google OAuth Registratie & Invite Claim Flow**:
+  - Migratie [20260924234500_google_oauth_invite_claim.sql](file:///c:/Users/robbe/Documents/SchrobbeDock/supabase/migrations/20260924234500_google_oauth_invite_claim.sql) met bijgewerkte `handle_new_user()` trigger (OAuth profielondersteuning en naamparsing) en atomic `claim_invitation(target_code)` RPC met row-level locking.
+  - In [register_screen.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/screens/register_screen.dart) directe *"Aanmelden & Registreren met Google"* knop toegevoegd met code-caching via `SharedPreferences`.
+  - In [dashboard_screen.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/screens/dashboard_screen.dart) automatische inwisseling na login, Zero-Trust fallback claim card voor accounts zonder licenties, en een universele inwisselknop in de navigatiebalk.
 - **Git Status**: Alle wijzigingen succesvol gecommit en gepusht naar `main`. Werkboom is schoon.
 
 ---
@@ -30,14 +34,7 @@
     - Universele/modulaire Flutter feedback modal/widget die eenvoudig in elke app (Spoke) geïmporteerd kan worden.
     - Beheer-/overzichtsscherm in de centrale Hub voor admins.
 
-### 2. Toekomstige Feature: Google OAuth Registratie via Uitnodigingscode
-- **Probleem**: Momenteel ondersteunt het registratiescherm (`/register`) uitsluitend e-mail + wachtwoord. Als een nieuwe gebruiker via een uitnodigingslink binnenkomt en kiest voor Google, ontbreekt de koppeling tussen de invite code en het nieuwe OAuth-account.
-- **Doel**: Een uitgenodigde gebruiker kan op `/register` kiezen tussen *"Registreren met Wachtwoord"* óf *"Aanmelden met Google"*, waarbij de licenties uit de uitnodiging direct en automatisch worden toegekend aan het Google-profiel.
-- **Architectuur / Oplossingsrichting**:
-  - *Optie A (OAuth Redirect State)*: De `invite_code` behouden in de OAuth handshake via redirect parameters en in de `handle_new_user()` trigger verwerken.
-  - *Optie B (Onboarding Claim Scherm)*: Indien een nieuw Google-account inlogt zonder licenties, leidt de Hub hem direct naar een tussenscherm *"Koppel je uitnodigingscode"* alvorens het dashboard te tonen.
-
-### 3. Ecosysteem-brede Thema & Layout Personalisatie (Oranje Accentkleur in Hub & Spokes)
+### 2. Ecosysteem-brede Thema & Layout Personalisatie (Oranje Accentkleur in Hub & Spokes)
 - **Doel**: Gebruikers stellen hun favoriete layout en kleurenpalet (met als eerste focus een warm/energiek **Oranje palet**) in via de Hub, waarna **álle Spoke applicaties** deze voorkeur automatisch en consistent per gebruiker overnemen.
 - **Architectuur (Hub & Spoke Distributie)**:
   - **Centrale Supabase Backend**:
@@ -55,7 +52,7 @@
     - Riverpod `themeModeProvider` en `accentColorProvider`.
     - Live theme switcher in het gebruikersprofiel met oranje preset (`Colors.deepOrange` / hex tokens) en density toggle.
 
-### 4. Documentatie: Repository README & Beheerdershandleiding
+### 3. Documentatie: Repository README & Beheerdershandleiding
 - **README.md (Developer Onboarding)**:
   - Overzicht van de Hub & Spoke ecosysteem architectuur.
   - Lokale installatie- en opstartinstructies (Supabase CLI, Flutter, migraties draaien, seed data).
@@ -63,6 +60,3 @@
 - **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`)**:
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
-
-
-

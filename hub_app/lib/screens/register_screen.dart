@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers.dart';
 
@@ -147,6 +149,55 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() {
         _errorMessage = 'Er is een fout opgetreden: $e';
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRegistering = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _registerWithGoogle() async {
+    final code = _codeController.text.trim();
+    if (!_isCodeValid) {
+      if (code.isNotEmpty) {
+        await _validateCode();
+      }
+      if (!_isCodeValid) {
+        setState(() {
+          _errorMessage = 'Verifieer eerst een geldige uitnodigingscode.';
+        });
+        return;
+      }
+    }
+
+    setState(() {
+      _isRegistering = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('pending_invite_code', _codeController.text.trim());
+
+      final supabase = ref.read(supabaseClientProvider);
+      await supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: kIsWeb ? null : 'io.supabase.schrobbedock://login-callback/',
+      );
+    } on AuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.message;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Google registratie mislukt: $e';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -323,10 +374,45 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: _isRegistering ? null : _registerWithGoogle,
+                          icon: const Icon(Icons.account_circle, size: 22),
+                          label: _isRegistering
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Direct aanmelden & registreren met Google'),
+                        ),
                       ],
 
                       const SizedBox(height: 24),
-                      const Divider(),
+                      const Row(
+                        children: [
+                          Expanded(child: Divider()),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'OF REGISTREER MET WACHTWOORD',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          Expanded(child: Divider()),
+                        ],
+                      ),
                       const SizedBox(height: 16),
 
                       // Stap 2: Persoonlijke gegevens
