@@ -52,7 +52,26 @@
     - Riverpod `themeModeProvider` en `accentColorProvider`.
     - Live theme switcher in het gebruikersprofiel met oranje preset (`Colors.deepOrange` / hex tokens) en density toggle.
 
-### 3. Documentatie: Repository README & Beheerdershandleiding
+### 3. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
+- **Doel**: 
+  1. Platform Admins kunnen vanuit de Hub gebruikers deactiveren of definitief verwijderen uit het ecosysteem.
+  2. Gebruikers kunnen via een profieloverzicht (`/profile`) hun opgeslagen accountgegevens raadplegen en zelfstandig hun account definitief laten verwijderen (Right to be Forgotten).
+- **Gevolgen voor Google OAuth bij Verwijdering (Architectuuranalyse)**:
+  - **In Supabase**: Bij het verwijderen van een record in `auth.users` worden via PostgreSQL foreign keys met `ON DELETE CASCADE` automatisch het record in `public.profiles`, alle `public.user_licenses`, en de gekoppelde `auth.identities` (de Google OAuth link) definitief gewist. Lopende JWT-sessies worden per direct ongeldig.
+  - **Bij Google zelf**: Het Google-account van de gebruiker blijft bij Google ongewijzigd bestaan.
+  - **Wat gebeurt er als de verwijderde gebruiker later opnieuw op "Inloggen met Google" klikt?**
+    - Supabase ziet hem als een **volledig nieuwe bezoeker** (de oude `auth.users.id` bestaat immers niet meer).
+    - Er wordt een nieuw, leeg profiel aangemaakt.
+    - Door onze **Zero-Trust architectuur** krijgt het account **0 licenties**. De gebruiker landt direct op de *"Geen Actieve Licenties Gevonden"* fallback kaart en heeft GEEN toegang tot Hub Beheer of Spokes, tenzij een beheerder hem opnieuw een geldige uitnodigingscode verstrekt.
+- **Architectuur (Hub & Spoke)**:
+  - **Database (Supabase)**:
+    - RPC `delete_user_by_admin(target_user_id UUID)`: Uitsluitend uitvoerbaar door `super_admin` van `hub_admin`. Verwijdert de gebruiker via `supabase_auth_admin` cascade.
+    - RPC `delete_own_account()`: Uitvoerbaar door de ingelogde gebruiker zelf (`auth.uid() = id`), met optionele soft-delete audit tracking.
+  - **Frontend / Clients**:
+    - **Admin Hub (`/admin/invites` tab Gebruikers)**: Rode actieknop *"Gebruiker Verwijderen"* met bevestigingsdialoog ("Typ de naam over om te bevestigen").
+    - **Self-Service Profiel (`/profile`)**: Overzicht van opgeslagen gegevens (naam, e-mail, telefoon, adres, gekoppelde login provider zoals Google), plus een gevarenzone met *"Account Definitief Verwijderen"*.
+
+### 4. Documentatie: Repository README & Beheerdershandleiding
 - **README.md (Developer Onboarding)**:
   - Overzicht van de Hub & Spoke ecosysteem architectuur.
   - Lokale installatie- en opstartinstructies (Supabase CLI, Flutter, migraties draaien, seed data).
@@ -60,3 +79,4 @@
 - **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`)**:
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
+
