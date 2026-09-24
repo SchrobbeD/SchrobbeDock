@@ -50,18 +50,22 @@
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
 
-### 5. Toekomstige Feature: Gepersonaliseerde Layout & Modulaire Thema-Engine (Oranje Accentkleur)
-- **Doel**: Gebruikers de mogelijkheid bieden de UI en layout aan te passen naar eigen voorkeur (donkere/lichte modus, layout density, en aanpasbare accentkleur met o.a. een modern oranje palet als favoriet).
-- **Architectuur (Hub & Spoke)**:
-  - **Database (Supabase)**:
-    - Uitbreiding op `public.profiles` met een `preferences` JSONB kolom (of `theme_mode` en `accent_color`: bijv. `orange`, `indigo`, `slate`).
-    - **RLS**: Gebruikers kunnen via bestaande policies uitsluitend hun eigen `preferences` lezen en updaten (`auth.uid() = id`).
-    - Spoke apps kunnen via dezelfde sessie/profiel direct het gewenste ecosysteem-thema overnemen.
+### 5. Toekomstige Feature: Ecosysteem-brede Thema & Layout Personalisatie (Oranje Accentkleur in Hub & Spokes)
+- **Doel**: Gebruikers stellen hun favoriete layout en kleurenpalet (met als eerste focus een warm/energiek **Oranje palet**) in via de Hub, waarna **álle Spoke applicaties** deze voorkeur automatisch en consistent per gebruiker overnemen.
+- **Architectuur (Hub & Spoke Distributie)**:
+  - **Centrale Supabase Backend**:
+    - `public.profiles`: kolom `preferences jsonb DEFAULT '{"theme_mode": "system", "accent_color": "orange", "density": "comfortable"}'::jsonb`.
+    - **RLS**: Gebruikers kunnen uitsluitend hun eigen `preferences` inzien en bijwerken (`auth.uid() = id`).
+    - **Zero-Latency Sync Trigger**: Een PostgreSQL trigger spiegelt gewijzigde `preferences` direct door naar `auth.users.raw_user_meta_data`. Hierdoor beschikken zowel de Hub als alle Spokes direct bij koude start over de kleurvoorkeur in het lokale sessie-JWT (`supabase.auth.currentUser.userMetadata`), zónder extra database round-trips of UI-knipperingen (FOUC).
+  - **Spoke Applicatie Integratie**:
+    - **Shared Design Token Library / Contract**: Een gedeelde package of model (`schrobbedock_theme`) waarin het kleurensysteem (licht/donker, oranje tinten `#F97316` / `#EA580C`, layout margins) centraal is gedefinieerd.
+    - Elke Spoke app initialiseert zijn `MaterialApp` / `ThemeData` via de Riverpod provider die direct luistert naar de `userMetadata['preferences']` van de centrale sessie.
+    - Wijzigt een gebruiker zijn thema in de Hub of Spoke? Realtime Supabase broadcast of sessie-update synchroniseert dit live naar alle openstaande applicaties.
   - **Licentie & Toegang**:
-    - Standaard personalisatie (dark/light mode, oranje/blauwe presets) beschikbaar voor ieder actief account.
-    - Geavanceerde custom theming (zoals volledige custom hex codes en white-labeling voor tenants) kan desgewenst worden vergrendeld achter een hogere tier in de centrale licentietabel.
-  - **Frontend (Flutter Hub & Riverpod)**:
-    - `theme_provider.dart` met Riverpod StateNotifier voor dynamische `ThemeData` generatie (`ColorScheme.fromSeed(seedColor: Color(0xFFF97316))` voor energiek oranje of warm terracotta).
-    - Lokale caching (`shared_preferences`) voor instant laadtijd zonder FOUC (Flash of Unstyled Content), gesynchroniseerd met de Supabase achtergrond.
-    - Instellingenscherm / profieltab in de Hub met een live preview selector voor kleur, layout-dichtheid en navigatiestijl.
+    - Beschikbaar voor **elke actieve gebruiker** over alle geautoriseerde Spokes heen.
+    - Optionele uitbreiding: B2B/Enterprise organisaties kunnen desgewenst een verplicht bedrijfs-accent (branding) afdwingen via organisatie-licenties.
+  - **Frontend Implementatie (Flutter Hub & Spokes)**:
+    - Riverpod `themeModeProvider` en `accentColorProvider`.
+    - Live theme switcher in het gebruikersprofiel met oranje preset (`Colors.deepOrange` / hex tokens) en density toggle.
+
 
