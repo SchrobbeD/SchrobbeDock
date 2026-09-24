@@ -184,7 +184,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final supabase = ref.read(supabaseClientProvider);
       await supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: kIsWeb ? null : 'io.supabase.schrobbedock://login-callback/',
+        redirectTo: kIsWeb
+            ? '${Uri.base.origin}/'
+            : 'io.supabase.schrobbedock://login-callback/',
       );
     } on AuthException catch (e) {
       if (mounted) {

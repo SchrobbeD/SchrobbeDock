@@ -93,15 +93,24 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Geval C: Volledig geauthenticeerd of vrijgestelde Google gebruiker
       if (currentLevel == 'aal2' || isGoogleUser) {
-        // Indien op auth of voltooide MFA schermen, stuur door naar dashboard
-        if (isPublicRoute || (path.startsWith('/mfa') && currentLevel == 'aal2')) {
+        // Indien op root, auth of voltooide MFA schermen, stuur door naar dashboard
+        if (path == '/' || isPublicRoute || (path.startsWith('/mfa') && currentLevel == 'aal2')) {
           return '/dashboard';
         }
+      }
+
+      // Indien ingelogd maar op ongedefinieerd root pad
+      if (path == '/') {
+        return '/dashboard';
       }
 
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/',
+        redirect: (context, state) => '/dashboard',
+      ),
       GoRoute(
         path: '/login',
         name: 'login',
