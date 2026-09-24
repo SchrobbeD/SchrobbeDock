@@ -49,3 +49,19 @@
 - **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`)**:
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
+
+### 5. Toekomstige Feature: Gepersonaliseerde Layout & Modulaire Thema-Engine (Oranje Accentkleur)
+- **Doel**: Gebruikers de mogelijkheid bieden de UI en layout aan te passen naar eigen voorkeur (donkere/lichte modus, layout density, en aanpasbare accentkleur met o.a. een modern oranje palet als favoriet).
+- **Architectuur (Hub & Spoke)**:
+  - **Database (Supabase)**:
+    - Uitbreiding op `public.profiles` met een `preferences` JSONB kolom (of `theme_mode` en `accent_color`: bijv. `orange`, `indigo`, `slate`).
+    - **RLS**: Gebruikers kunnen via bestaande policies uitsluitend hun eigen `preferences` lezen en updaten (`auth.uid() = id`).
+    - Spoke apps kunnen via dezelfde sessie/profiel direct het gewenste ecosysteem-thema overnemen.
+  - **Licentie & Toegang**:
+    - Standaard personalisatie (dark/light mode, oranje/blauwe presets) beschikbaar voor ieder actief account.
+    - Geavanceerde custom theming (zoals volledige custom hex codes en white-labeling voor tenants) kan desgewenst worden vergrendeld achter een hogere tier in de centrale licentietabel.
+  - **Frontend (Flutter Hub & Riverpod)**:
+    - `theme_provider.dart` met Riverpod StateNotifier voor dynamische `ThemeData` generatie (`ColorScheme.fromSeed(seedColor: Color(0xFFF97316))` voor energiek oranje of warm terracotta).
+    - Lokale caching (`shared_preferences`) voor instant laadtijd zonder FOUC (Flash of Unstyled Content), gesynchroniseerd met de Supabase achtergrond.
+    - Instellingenscherm / profieltab in de Hub met een live preview selector voor kleur, layout-dichtheid en navigatiestijl.
+
