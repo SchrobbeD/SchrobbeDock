@@ -1,0 +1,50 @@
+name: Deploy Flutter Web to one.com
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'hub_app/**'
+      - '.github/workflows/deploy_web.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./hub_app
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web Release
+        run: |
+          flutter build web --release \
+            --dart-define=SUPABASE_URL="${{ secrets.PROD_SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.PROD_SUPABASE_ANON_KEY }}"
+
+      - name: Copy .htaccess to build output
+        run: cp web/.htaccess build/web/.htaccess
+
+      - name: Deploy via SFTP to one.com
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.ONE_SFTP_SERVER }}
+          username: ${{ secrets.ONE_SFTP_USER }}
+          password: ${{ secrets.ONE_SFTP_PASSWORD }}
+          protocol: sftp
+          port: ${{ secrets.ONE_SFTP_PORT || 22 }}
+          local-dir: ./hub_app/build/web/
+          server-dir: ${{ secrets.ONE_REMOTE_PATH }}
+          dangerous-clean-slate: false
