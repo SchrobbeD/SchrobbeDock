@@ -197,11 +197,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       appBar: AppBar(
         title: const Text('SchrobbeDock Hub'),
         actions: [
-          IconButton(
-            tooltip: 'Uitnodigingscode inwisselen',
-            icon: const Icon(Icons.vpn_key_outlined),
-            onPressed: _showClaimCodeDialog,
-          ),
+          if (!isSuperAdmin)
+            IconButton(
+              tooltip: 'Uitnodigingscode inwisselen',
+              icon: const Icon(Icons.vpn_key_outlined),
+              onPressed: _showClaimCodeDialog,
+            ),
           if (isSuperAdmin)
             FilledButton.tonalIcon(
               onPressed: () => context.go('/admin/invites'),
