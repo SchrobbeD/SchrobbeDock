@@ -38,13 +38,13 @@ jobs:
         run: cp web/.htaccess build/web/.htaccess
 
       - name: Deploy via SFTP to one.com
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
         with:
-          server: ${{ secrets.ONE_SFTP_SERVER }}
           username: ${{ secrets.ONE_SFTP_USER }}
+          server: ${{ secrets.ONE_SFTP_SERVER }}
           password: ${{ secrets.ONE_SFTP_PASSWORD }}
-          protocol: sftp
-          port: ${{ secrets.ONE_SFTP_PORT || 22 }}
-          local-dir: ./hub_app/build/web/
-          server-dir: ${{ secrets.ONE_REMOTE_PATH }}
-          dangerous-clean-slate: false
+          port: 22
+          local_path: './hub_app/build/web/*'
+          remote_path: ${{ secrets.ONE_REMOTE_PATH }}
+          sftp_only: true
+
