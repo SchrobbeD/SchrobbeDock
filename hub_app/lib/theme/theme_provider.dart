@@ -93,6 +93,47 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
     await _updatePreferences(updated);
   }
 
+  Future<void> saveCurrentAsCustomTheme(String name) async {
+    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+    final newSaved = SavedTheme(
+      id: newId,
+      name: name.trim().isEmpty ? 'Aangepast Thema' : name.trim(),
+      primaryColor: state.primaryColor,
+      secondaryColor: state.secondaryColor,
+      themeMode: state.themeMode,
+    );
+
+    final updatedList = List<SavedTheme>.from(state.savedThemes)..add(newSaved);
+    final updated = state.copyWith(
+      preset: 'saved_$newId',
+      savedThemes: updatedList,
+    );
+    await _updatePreferences(updated);
+  }
+
+  Future<void> applySavedTheme(SavedTheme saved) async {
+    final updated = state.copyWith(
+      primaryColor: saved.primaryColor,
+      secondaryColor: saved.secondaryColor,
+      themeMode: saved.themeMode,
+      preset: 'saved_${saved.id}',
+    );
+    await _updatePreferences(updated);
+  }
+
+  Future<void> deleteSavedTheme(String id) async {
+    final updatedList = state.savedThemes.where((t) => t.id != id).toList();
+    String newPreset = state.preset;
+    if (state.preset == 'saved_$id') {
+      newPreset = 'custom';
+    }
+    final updated = state.copyWith(
+      preset: newPreset,
+      savedThemes: updatedList,
+    );
+    await _updatePreferences(updated);
+  }
+
   Future<void> _updatePreferences(ThemePreferences newPrefs) async {
     state = newPrefs;
     await _cacheLocally(newPrefs);
@@ -104,8 +145,14 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
           'update_user_preferences',
           params: {'new_prefs': newPrefs.toJson()},
         );
-      } catch (e) {
-        debugPrint('Fout bij synchroniseren voorkeuren naar Supabase: $e');
+      } catch (_) {
+        // Fallback: update direct op de profiles tabel indien de RPC nog niet gemigreerd is
+        try {
+          await _supabase!
+              .from('profiles')
+              .update({'preferences': newPrefs.toJson()})
+              .eq('id', user.id);
+        } catch (_) {}
       }
     }
   }

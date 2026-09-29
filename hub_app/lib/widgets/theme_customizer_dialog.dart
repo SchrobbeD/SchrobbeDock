@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart' hide colorToHex;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/schrobbedock_theme.dart';
 
@@ -17,52 +18,88 @@ class ThemeCustomizerDialog extends ConsumerStatefulWidget {
       _ThemeCustomizerDialogState();
 }
 
-class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog> {
-  late TextEditingController _primaryHexController;
-  late TextEditingController _secondaryHexController;
-  bool _isCustomMode = false;
-  int _activeColorTab = 0; // 0 = Primair, 1 = Secundair
-
-  static const List<Color> _swatches = [
-    Color(0xFFEA580C), // Warm Amber / Orange (Default)
-    Color(0xFFB45309), // Warm Rust
-    Color(0xFFF97316), // Bright Orange
-    Color(0xFFEF4444), // Crimson Red
-    Color(0xFFF59E0B), // Golden Amber
-    Color(0xFF10B981), // Emerald
-    Color(0xFF059669), // Dark Emerald
-    Color(0xFF06B6D4), // Cyan
-    Color(0xFF2563EB), // Ocean Blue
-    Color(0xFF1D4ED8), // Deep Blue
-    Color(0xFF4F46E5), // Indigo
-    Color(0xFF7C3AED), // Violet
-    Color(0xFF9333EA), // Purple
-    Color(0xFFDB2777), // Pink
-    Color(0xFF475569), // Slate
-    Color(0xFF1E293B), // Dark Slate
-  ];
+class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  int _activeColorTarget = 0; // 0 = Primair, 1 = Secundair
+  late Color _currentPrimary;
+  late Color _currentSecondary;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     final prefs = ref.read(themePreferencesProvider);
-    _primaryHexController =
-        TextEditingController(text: colorToHex(prefs.primaryColor));
-    _secondaryHexController =
-        TextEditingController(text: colorToHex(prefs.secondaryColor));
-    _isCustomMode = prefs.preset == 'custom';
+    _currentPrimary = prefs.primaryColor;
+    _currentSecondary = prefs.secondaryColor;
   }
 
   @override
   void dispose() {
-    _primaryHexController.dispose();
-    _secondaryHexController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
-  void _syncHexInputs(Color primary, Color secondary) {
-    _primaryHexController.text = colorToHex(primary);
-    _secondaryHexController.text = colorToHex(secondary);
+  void _showSaveThemeDialog(BuildContext context) {
+    final nameController = TextEditingController(text: 'Mijn Thema');
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.bookmark_add_outlined),
+              SizedBox(width: 8),
+              Text('Thema Opslaan'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Geef een herkenbare naam aan jouw aangepaste kleurensamenstelling om deze later snel opnieuw te kiezen.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Themanaam',
+                  hintText: 'bijv. Bedrijfsstijl, Avondrust...',
+                  prefixIcon: Icon(Icons.label_outline),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuleren'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                if (name.isNotEmpty) {
+                  ref
+                      .read(themePreferencesProvider.notifier)
+                      .saveCurrentAsCustomTheme(name);
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.green,
+                      content: Text('Thema "$name" succesvol opgeslagen!'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Opslaan'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -72,10 +109,11 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog> {
     final notifier = ref.read(themePreferencesProvider.notifier);
 
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 580, maxHeight: 720),
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 760),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,8 +127,11 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog> {
                       color: prefs.primaryColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.palette_outlined,
-                        color: prefs.primaryColor, size: 24),
+                    child: Icon(
+                      Icons.palette_outlined,
+                      color: prefs.primaryColor,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -98,16 +139,20 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Uiterlijk & Thema',
-                          style: theme.textTheme.titleLarge?.copyWith(
+                          'Uiterlijk & Thema Personalisatie',
+                          style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          'Personaliseer de weergave en accentkleuren voor al je apps.',
+                          'Stel weergavemodus in en creëer eigen thema\'s met de colorpicker.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -118,414 +163,471 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              const Divider(),
               const SizedBox(height: 12),
 
-              // Content met Scroll
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 1. Modus Kiezer (Systeem, Licht, Donker)
-                      Text(
-                        'WEERGAVEMODUS',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SegmentedButton<ThemeMode>(
-                        segments: const [
-                          ButtonSegment(
-                            value: ThemeMode.system,
-                            icon: Icon(Icons.brightness_auto, size: 18),
-                            label: Text('Systeem'),
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.light,
-                            icon: Icon(Icons.light_mode, size: 18),
-                            label: Text('Licht'),
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.dark,
-                            icon: Icon(Icons.dark_mode, size: 18),
-                            label: Text('Donker (Slate)'),
-                          ),
-                        ],
-                        selected: {prefs.themeMode},
-                        onSelectionChanged: (selected) {
-                          notifier.setThemeMode(selected.first);
-                        },
-                      ),
-                      const SizedBox(height: 24),
+              // Weergavemodus SegmentedButton (Wrapped in SingleChildScrollView to prevent overflow)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<ThemeMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: Icon(Icons.brightness_auto, size: 16),
+                      label: Text('Systeem'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: Icon(Icons.light_mode, size: 16),
+                      label: Text('Licht'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: Icon(Icons.dark_mode, size: 16),
+                      label: Text('Donker (Slate)'),
+                    ),
+                  ],
+                  selected: {prefs.themeMode},
+                  onSelectionChanged: (selected) {
+                    notifier.setThemeMode(selected.first);
+                  },
+                ),
+              ),
+              const SizedBox(height: 14),
 
-                      // 2. Presets / Templates
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'VOORGEMAAKTE THEMA\'S',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          if (_isCustomMode)
-                            TextButton.icon(
-                              onPressed: () {
-                                setState(() => _isCustomMode = false);
-                                final defaultPreset = ThemePresets.amberRust;
-                                notifier.applyPreset(defaultPreset);
-                                _syncHexInputs(defaultPreset.primaryColor,
-                                    defaultPreset.secondaryColor);
-                              },
-                              icon: const Icon(Icons.restart_alt, size: 16),
-                              label: const Text('Herstel Standaard'),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          ...ThemePresets.allPresets.map((preset) {
-                            final isSelected = !_isCustomMode &&
-                                prefs.preset == preset.id;
-                            return InkWell(
-                              onTap: () {
-                                setState(() => _isCustomMode = false);
-                                notifier.applyPreset(preset);
-                                _syncHexInputs(preset.primaryColor,
-                                    preset.secondaryColor);
-                              },
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? preset.primaryColor
-                                          .withValues(alpha: 0.12)
-                                      : theme.colorScheme.surfaceContainerHighest
-                                          .withValues(alpha: 0.5),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? preset.primaryColor
-                                        : theme.colorScheme.outline
-                                            .withValues(alpha: 0.5),
-                                    width: isSelected ? 2 : 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // Kleurenbadges (Primair + Secundair)
-                                    Stack(
-                                      children: [
-                                        Container(
-                                          width: 20,
-                                          height: 20,
-                                          decoration: BoxDecoration(
-                                            color: preset.secondaryColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        Positioned(
-                                          left: 6,
-                                          child: Container(
-                                            width: 20,
-                                            height: 20,
-                                            decoration: BoxDecoration(
-                                              color: preset.primaryColor,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Text(
-                                      preset.name,
-                                      style:
-                                          theme.textTheme.bodyMedium?.copyWith(
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.w500,
-                                      ),
-                                    ),
-                                    if (isSelected) ...[
-                                      const SizedBox(width: 8),
-                                      Icon(Icons.check,
-                                          size: 16, color: preset.primaryColor),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                          // Custom button
-                          InkWell(
-                            onTap: () {
-                              setState(() => _isCustomMode = true);
-                              notifier.setCustomColors(
-                                primary: prefs.primaryColor,
-                                secondary: prefs.secondaryColor,
-                              );
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _isCustomMode
-                                    ? prefs.primaryColor
-                                        .withValues(alpha: 0.12)
-                                    : theme.colorScheme.surfaceContainerHighest
-                                        .withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _isCustomMode
-                                      ? prefs.primaryColor
-                                      : theme.colorScheme.outline
-                                          .withValues(alpha: 0.5),
-                                  width: _isCustomMode ? 2 : 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.colorize,
-                                      size: 18,
-                                      color: _isCustomMode
-                                          ? prefs.primaryColor
-                                          : theme.colorScheme.onSurfaceVariant),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Zelf Kiezen (Custom)',
-                                    style:
-                                        theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: _isCustomMode
-                                          ? FontWeight.bold
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-                                  if (_isCustomMode) ...[
-                                    const SizedBox(width: 8),
-                                    Icon(Icons.check,
-                                        size: 16, color: prefs.primaryColor),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // 3. Custom Kleur Kiezer (Indien Custom actief)
-                      if (_isCustomMode) ...[
-                        Text(
-                          'AANGEPASTE KLEUREN INSTELLEN',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.1,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SegmentedButton<int>(
-                          segments: [
-                            ButtonSegment(
-                              value: 0,
-                              icon: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: prefs.primaryColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              label: const Text('Primaire Accentkleur'),
-                            ),
-                            ButtonSegment(
-                              value: 1,
-                              icon: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: prefs.secondaryColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              label: const Text('Secundaire Kleur'),
-                            ),
-                          ],
-                          selected: {_activeColorTab},
-                          onSelectionChanged: (selected) {
-                            setState(() => _activeColorTab = selected.first);
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Hex Invoerveld
-                        Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: _activeColorTab == 0
-                                    ? prefs.primaryColor
-                                    : prefs.secondaryColor,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _activeColorTab == 0
-                                    ? _primaryHexController
-                                    : _secondaryHexController,
-                                decoration: InputDecoration(
-                                  labelText: _activeColorTab == 0
-                                      ? 'Primaire Hex Code'
-                                      : 'Secundaire Hex Code',
-                                  hintText: '#EA580C',
-                                  prefixIcon: const Icon(Icons.tag, size: 20),
-                                  isDense: true,
-                                ),
-                                onChanged: (val) {
-                                  if (val.trim().length >= 6) {
-                                    final parsed = colorFromHex(
-                                      val,
-                                      _activeColorTab == 0
-                                          ? prefs.primaryColor
-                                          : prefs.secondaryColor,
-                                    );
-                                    if (_activeColorTab == 0) {
-                                      notifier.setCustomColors(
-                                        primary: parsed,
-                                        secondary: prefs.secondaryColor,
-                                      );
-                                    } else {
-                                      notifier.setCustomColors(
-                                        primary: prefs.primaryColor,
-                                        secondary: parsed,
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Swatches Palette
-                        Text(
-                          'Snelkiezer:',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _swatches.map((color) {
-                            final isColorSelected = _activeColorTab == 0
-                                ? prefs.primaryColor.toARGB32() ==
-                                    color.toARGB32()
-                                : prefs.secondaryColor.toARGB32() ==
-                                    color.toARGB32();
-
-                            return InkWell(
-                              onTap: () {
-                                if (_activeColorTab == 0) {
-                                  _primaryHexController.text =
-                                      colorToHex(color);
-                                  notifier.setCustomColors(
-                                    primary: color,
-                                    secondary: prefs.secondaryColor,
-                                  );
-                                } else {
-                                  _secondaryHexController.text =
-                                      colorToHex(color);
-                                  notifier.setCustomColors(
-                                    primary: prefs.primaryColor,
-                                    secondary: color,
-                                  );
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: isColorSelected
-                                        ? Colors.white
-                                        : Colors.transparent,
-                                    width: 2,
-                                  ),
-                                  boxShadow: isColorSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: color.withValues(alpha: 0.5),
-                                            blurRadius: 6,
-                                            spreadRadius: 1,
-                                          )
-                                        ]
-                                      : null,
-                                ),
-                                child: isColorSelected
-                                    ? const Icon(Icons.check,
-                                        size: 16, color: Colors.white)
-                                    : null,
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ],
+              // Tabs: [1] Sjablonen & Opgeslagen Thema's, [2] Colorpicker & Zelf Maken
+              TabBar(
+                controller: _tabController,
+                labelColor: prefs.primaryColor,
+                indicatorColor: prefs.primaryColor,
+                tabs: [
+                  Tab(
+                    icon: const Icon(Icons.dashboard_customize_outlined,
+                        size: 18),
+                    text:
+                        'Thema\'s (${prefs.savedThemes.length + ThemePresets.allPresets.length})',
                   ),
+                  const Tab(
+                    icon: Icon(Icons.colorize, size: 18),
+                    text: 'Interactieve Colorpicker',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Tab Views
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // TAB 1: Sjablonen & Opgeslagen thema's
+                    _buildThemesTab(theme, prefs, notifier),
+
+                    // TAB 2: Interactieve Colorpicker
+                    _buildColorPickerTab(theme, prefs, notifier),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 16),
-              const Divider(),
               const SizedBox(height: 12),
+              const Divider(),
+              const SizedBox(height: 8),
 
-              // Footer acties
+              // Footer
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      final defaultPreset = ThemePresets.amberRust;
+                      notifier.applyPreset(defaultPreset);
+                      setState(() {
+                        _currentPrimary = defaultPreset.primaryColor;
+                        _currentSecondary = defaultPreset.secondaryColor;
+                      });
+                    },
+                    icon: const Icon(Icons.restart_alt, size: 16),
+                    label: const Text('Herstel Warm Amber'),
+                  ),
                   FilledButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Sluiten'),
+                    child: const Text('Klaar'),
                   ),
                 ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildThemesTab(
+    ThemeData theme,
+    ThemePreferences prefs,
+    ThemePreferencesNotifier notifier,
+  ) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Mijn Opgeslagen Custom Thema's
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'MIJN OPGESLAGEN THEMA\'S',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () => _showSaveThemeDialog(context),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Thema Opslaan'),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (prefs.savedThemes.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 20, color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Je hebt nog geen eigen thema\'s opgeslagen. Ga naar de tab "Interactieve Colorpicker" om kleuren te kiezen en sla ze hier op!',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: prefs.savedThemes.length,
+              separatorBuilder: (_, i) => const SizedBox(height: 8),
+              itemBuilder: (context, idx) {
+                final saved = prefs.savedThemes[idx];
+                final isSelected = prefs.preset == 'saved_${saved.id}';
+
+                return Card(
+                  elevation: 0,
+                  color: isSelected
+                      ? saved.primaryColor.withValues(alpha: 0.12)
+                      : null,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(
+                      color: isSelected
+                          ? saved.primaryColor
+                          : theme.colorScheme.outline.withValues(alpha: 0.4),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: ListTile(
+                    onTap: () {
+                      notifier.applySavedTheme(saved);
+                      setState(() {
+                        _currentPrimary = saved.primaryColor;
+                        _currentSecondary = saved.secondaryColor;
+                      });
+                    },
+                    leading: Stack(
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: saved.secondaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Positioned(
+                          left: 8,
+                          child: Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: saved.primaryColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    title: Text(
+                      saved.name,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Primair: ${colorToHex(saved.primaryColor)} • Secundair: ${colorToHex(saved.secondaryColor)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSelected)
+                          Icon(Icons.check_circle,
+                              color: saved.primaryColor, size: 20),
+                        IconButton(
+                          tooltip: 'Thema Verwijderen',
+                          icon: const Icon(Icons.delete_outline,
+                              size: 18, color: Colors.redAccent),
+                          onPressed: () {
+                            notifier.deleteSavedTheme(saved.id);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
+          const SizedBox(height: 20),
+
+          // 2. Standaard Sjablonen
+          Text(
+            'STANDAARD SJABLONEN',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: ThemePresets.allPresets.map((preset) {
+              final isSelected = prefs.preset == preset.id;
+              return InkWell(
+                onTap: () {
+                  notifier.applyPreset(preset);
+                  setState(() {
+                    _currentPrimary = preset.primaryColor;
+                    _currentSecondary = preset.secondaryColor;
+                  });
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? preset.primaryColor.withValues(alpha: 0.12)
+                        : theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected
+                          ? preset.primaryColor
+                          : theme.colorScheme.outline.withValues(alpha: 0.5),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Stack(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: preset.secondaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Positioned(
+                            left: 6,
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: preset.primaryColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 14),
+                      Text(
+                        preset.name,
+                        style: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                      if (isSelected) ...[
+                        const SizedBox(width: 8),
+                        Icon(Icons.check, size: 16, color: preset.primaryColor),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorPickerTab(
+    ThemeData theme,
+    ThemePreferences prefs,
+    ThemePreferencesNotifier notifier,
+  ) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Keuze Primair vs Secundair
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'KIES ONDERDEEL OM AAN TE PASSEN:',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: () => _showSaveThemeDialog(context),
+                icon: const Icon(Icons.bookmark_add, size: 16),
+                label: const Text('Opslaan als Thema'),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _currentPrimary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text('Primaire Accentkleur (${colorToHex(_currentPrimary)})'),
+                    ],
+                  ),
+                  selected: _activeColorTarget == 0,
+                  onSelected: (val) {
+                    if (val) setState(() => _activeColorTarget = 0);
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _currentSecondary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text('Secundaire Kleur (${colorToHex(_currentSecondary)})'),
+                    ],
+                  ),
+                  selected: _activeColorTarget == 1,
+                  onSelected: (val) {
+                    if (val) setState(() => _activeColorTarget = 1);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // De interactieve ColorPicker
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              ),
+            ),
+            child: ColorPicker(
+              pickerColor:
+                  _activeColorTarget == 0 ? _currentPrimary : _currentSecondary,
+              onColorChanged: (newColor) {
+                setState(() {
+                  if (_activeColorTarget == 0) {
+                    _currentPrimary = newColor;
+                  } else {
+                    _currentSecondary = newColor;
+                  }
+                });
+                notifier.setCustomColors(
+                  primary: _currentPrimary,
+                  secondary: _currentSecondary,
+                );
+              },
+              colorPickerWidth: 320,
+              pickerAreaHeightPercent: 0.5,
+              enableAlpha: false,
+              displayThumbColor: true,
+              paletteType: PaletteType.hsvWithHue,
+              labelTypes: const [
+                ColorLabelType.hex,
+                ColorLabelType.rgb,
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

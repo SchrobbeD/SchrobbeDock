@@ -614,32 +614,68 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         );
                       }
 
-                      return GridView.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 320,
-                          crossAxisSpacing: 20,
-                          mainAxisSpacing: 20,
-                          childAspectRatio: 1.25,
-                        ),
-                        itemCount: licenses.length,
-                        itemBuilder: (context, index) {
-                          final license = licenses[index];
-                          return _SimpleAppCard(
-                            license: license,
-                            onInfoTap: () => _showAppInfoDialog(license),
-                            onLaunchTap: () {
-                              final appName =
-                                  license.app?.name ?? 'de applicatie';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '$appName wordt gestart...',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                ),
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (constraints.maxWidth <= 0) {
+                            return const SizedBox.shrink();
+                          }
+                          if (constraints.maxWidth < 340) {
+                            return ListView.separated(
+                              itemCount: licenses.length,
+                              separatorBuilder: (_, i) =>
+                                  const SizedBox(height: 16),
+                              itemBuilder: (context, index) {
+                                final license = licenses[index];
+                                return _SimpleAppCard(
+                                  license: license,
+                                  onInfoTap: () => _showAppInfoDialog(license),
+                                  onLaunchTap: () {
+                                    final appName =
+                                        license.app?.name ?? 'de applicatie';
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '$appName wordt gestart...',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600),
+                                        ),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          }
+
+                          return GridView.builder(
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 320,
+                              crossAxisSpacing: 20,
+                              mainAxisSpacing: 20,
+                              childAspectRatio: 1.25,
+                            ),
+                            itemCount: licenses.length,
+                            itemBuilder: (context, index) {
+                              final license = licenses[index];
+                              return _SimpleAppCard(
+                                license: license,
+                                onInfoTap: () => _showAppInfoDialog(license),
+                                onLaunchTap: () {
+                                  final appName =
+                                      license.app?.name ?? 'de applicatie';
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '$appName wordt gestart...',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
                               );
                             },
                           );

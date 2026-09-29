@@ -63,5 +63,27 @@ void main() {
       expect(darkTheme.cardTheme.color, equals(AppTheme.slate800));
       expect(darkTheme.colorScheme.primary, equals(prefs.primaryColor));
     });
+
+    test('SavedTheme serialization and list parsing works seamlessly', () {
+      final saved = const SavedTheme(
+        id: 'test_123',
+        name: 'Mijn Bedrijfsstijl',
+        primaryColor: Color(0xFF10B981),
+        secondaryColor: Color(0xFF047857),
+        themeMode: ThemeMode.dark,
+      );
+
+      final prefs = ThemePreferences(
+        savedThemes: [saved],
+      );
+
+      final json = prefs.toJson();
+      final parsed = ThemePreferences.fromJson(json);
+
+      expect(parsed.savedThemes.length, equals(1));
+      expect(parsed.savedThemes.first.name, equals('Mijn Bedrijfsstijl'));
+      expect(colorToHex(parsed.savedThemes.first.primaryColor), equals('#10B981'));
+      expect(parsed.savedThemes.first.themeMode, equals(ThemeMode.dark));
+    });
   });
 }
