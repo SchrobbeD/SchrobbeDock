@@ -1,38 +1,167 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="SchrobbeDock - Modulair Applicatie-ecosysteem">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Directe Tema-initialisatie in HEAD (voorkomt witte flikkering / FOUC op F5) -->
+  <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem('flutter.schrobbedock_theme_preferences') || 
+                  localStorage.getItem('schrobbedock_theme_preferences');
+        var isDark = true; // Standaard Dark Slate
+        var primary = '#EA580C';
+        var secondary = '#B45309';
+
+        if (raw) {
+          var p = JSON.parse(raw);
+          if (p.theme_mode === 'light') {
+            isDark = false;
+          } else if (p.theme_mode === 'dark') {
+            isDark = true;
+          } else {
+            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
+          if (p.primary_color) primary = p.primary_color;
+          if (p.secondary_color) secondary = p.secondary_color;
+        } else {
+          isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+
+        var bg = isDark ? '#0F172A' : '#F8FAFC';
+        document.documentElement.style.backgroundColor = bg;
+        document.write('<style>html, body { background-color: ' + bg + ' !important; margin: 0; padding: 0; }</style>');
+      } catch (e) {}
+    })();
+  </script>
+
+  <style>
+    /* Algemene layout en splash-stijlen */
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    /* SchrobbeDock Splash Overlay */
+    #schrobbedock-splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      pointer-events: none;
+      transition: opacity 0.25s ease-out;
+    }
+
+    .splash-logo {
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+      animation: pulse 1.8s infinite ease-in-out;
+    }
+
+    .splash-spinner {
+      margin-top: 24px;
+      width: 26px;
+      height: 26px;
+      border: 3px solid rgba(150, 150, 150, 0.2);
+      border-top-color: #EA580C;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.92; }
+      50% { transform: scale(1.05); opacity: 1; }
+    }
+
+    /* Verberg de standaard witte/blauwe flutter debug-loading balk bovenin */
+    .flutter-loader, [role="progressbar"] {
+      display: none !important;
+    }
+  </style>
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="hub_app">
+  <meta name="apple-mobile-web-app-title" content="SchrobbeDock">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>hub_app</title>
+  <title>SchrobbeDock Hub</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <!-- Elegante Splash Scherm met thematische achtergrond -->
+  <div id="schrobbedock-splash">
+    <div class="splash-logo" id="splash-icon" style="background: linear-gradient(135deg, #EA580C, #B45309);">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+        <line x1="4" y1="22" x2="4" y2="15"></line>
+      </svg>
+    </div>
+    <div class="splash-spinner" id="splash-spinner"></div>
+  </div>
+
+  <script>
+    // Kleuren van het splash logo afstemmen op de actieve voorkeuren
+    (function() {
+      try {
+        var raw = localStorage.getItem('flutter.schrobbedock_theme_preferences') || 
+                  localStorage.getItem('schrobbedock_theme_preferences');
+        if (raw) {
+          var p = JSON.parse(raw);
+          var primary = p.primary_color || '#EA580C';
+          var secondary = p.secondary_color || '#B45309';
+          var logo = document.getElementById('splash-icon');
+          var spinner = document.getElementById('splash-spinner');
+          if (logo) logo.style.background = 'linear-gradient(135deg, ' + primary + ', ' + secondary + ')';
+          if (spinner) spinner.style.borderTopColor = primary;
+        }
+      } catch (e) {}
+
+      // Verberg splash zodra de Flutter canvas/view gemonteerd is
+      var observer = new MutationObserver(function(mutations, obs) {
+        var flutterView = document.querySelector('flutter-view, flt-glass-pane');
+        if (flutterView) {
+          setTimeout(function() {
+            var splash = document.getElementById('schrobbedock-splash');
+            if (splash) {
+              splash.style.opacity = '0';
+              setTimeout(function() { splash.remove(); }, 260);
+            }
+          }, 80);
+          obs.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
