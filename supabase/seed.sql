@@ -39,20 +39,27 @@ ON CONFLICT (invitation_id, app_id) DO NOTHING;
 -- A. Super Admin: admin@hub.local
 INSERT INTO auth.users (
     instance_id, id, aud, role, email, encrypted_password,
-    email_confirmed_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
-    created_at, updated_at
+    email_confirmed_at, recovery_sent_at, last_sign_in_at,
+    raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at,
+    confirmation_token, email_change, email_change_token_new, recovery_token
 ) VALUES (
     '00000000-0000-0000-0000-000000000000',
     '11111111-1111-1111-1111-111111111111',
     'authenticated', 'authenticated', 'admin@hub.local',
     crypt('password123', gen_salt('bf')),
-    NOW(), NOW(),
+    NOW(), NOW(), NOW(),
     '{"provider":"email","providers":["email"]}',
     '{"first_name":"Super","last_name":"Admin","preferences":{"theme_mode":"system","primary_color":"#EA580C","secondary_color":"#B45309","preset":"amber_rust"}}',
-    NOW(), NOW()
+    NOW(), NOW(),
+    '', '', '', ''
 ) ON CONFLICT (id) DO UPDATE SET
     encrypted_password = crypt('password123', gen_salt('bf')),
-    raw_user_meta_data = EXCLUDED.raw_user_meta_data;
+    raw_user_meta_data = EXCLUDED.raw_user_meta_data,
+    confirmation_token = '',
+    email_change = '',
+    email_change_token_new = '',
+    recovery_token = '';
 
 INSERT INTO auth.identities (
     id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
@@ -67,20 +74,27 @@ INSERT INTO auth.identities (
 -- B. Test User 1: user1@hub.local (Jan Jansen - Planner gebruiker)
 INSERT INTO auth.users (
     instance_id, id, aud, role, email, encrypted_password,
-    email_confirmed_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
-    created_at, updated_at
+    email_confirmed_at, recovery_sent_at, last_sign_in_at,
+    raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at,
+    confirmation_token, email_change, email_change_token_new, recovery_token
 ) VALUES (
     '00000000-0000-0000-0000-000000000000',
     '33333333-3333-3333-3333-333333333333',
     'authenticated', 'authenticated', 'user1@hub.local',
     crypt('password123', gen_salt('bf')),
-    NOW(), NOW(),
+    NOW(), NOW(), NOW(),
     '{"provider":"email","providers":["email"]}',
     '{"first_name":"Jan","last_name":"Jansen","invite_code":"INVITE-USER1-SEED","preferences":{"theme_mode":"system","primary_color":"#EA580C","secondary_color":"#B45309","preset":"amber_rust"}}',
-    NOW(), NOW()
+    NOW(), NOW(),
+    '', '', '', ''
 ) ON CONFLICT (id) DO UPDATE SET
     encrypted_password = crypt('password123', gen_salt('bf')),
-    raw_user_meta_data = EXCLUDED.raw_user_meta_data;
+    raw_user_meta_data = EXCLUDED.raw_user_meta_data,
+    confirmation_token = '',
+    email_change = '',
+    email_change_token_new = '',
+    recovery_token = '';
 
 INSERT INTO auth.identities (
     id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
@@ -95,20 +109,27 @@ INSERT INTO auth.identities (
 -- C. Test User 2: user2@hub.local (Sophie Peeters - Magazijn & Planner beheerder)
 INSERT INTO auth.users (
     instance_id, id, aud, role, email, encrypted_password,
-    email_confirmed_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
-    created_at, updated_at
+    email_confirmed_at, recovery_sent_at, last_sign_in_at,
+    raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at,
+    confirmation_token, email_change, email_change_token_new, recovery_token
 ) VALUES (
     '00000000-0000-0000-0000-000000000000',
     '44444444-4444-4444-4444-444444444444',
     'authenticated', 'authenticated', 'user2@hub.local',
     crypt('password123', gen_salt('bf')),
-    NOW(), NOW(),
+    NOW(), NOW(), NOW(),
     '{"provider":"email","providers":["email"]}',
     '{"first_name":"Sophie","last_name":"Peeters","invite_code":"INVITE-USER2-SEED","preferences":{"theme_mode":"dark","primary_color":"#2563EB","secondary_color":"#1D4ED8","preset":"ocean_deep"}}',
-    NOW(), NOW()
+    NOW(), NOW(),
+    '', '', '', ''
 ) ON CONFLICT (id) DO UPDATE SET
     encrypted_password = crypt('password123', gen_salt('bf')),
-    raw_user_meta_data = EXCLUDED.raw_user_meta_data;
+    raw_user_meta_data = EXCLUDED.raw_user_meta_data,
+    confirmation_token = '',
+    email_change = '',
+    email_change_token_new = '',
+    recovery_token = '';
 
 INSERT INTO auth.identities (
     id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
