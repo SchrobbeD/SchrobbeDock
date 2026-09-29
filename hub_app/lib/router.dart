@@ -65,13 +65,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       final user = session.user;
       final provider = user.appMetadata['provider'] as String? ?? 'email';
       final isGoogleUser = provider == 'google';
+      final isSeededUser = user.email?.endsWith('@hub.local') == true;
       final isAdminRoute = path.startsWith('/admin');
 
       // Hybride MFA Beleid:
       // - Verplicht voor e-mail/wachtwoord gebruikers (!isGoogleUser)
       // - Verplicht voor iedereen die beheerderstaken uitvoert (isAdminRoute)
       // - Verplicht indien een gebruiker reeds een TOTP factor gekoppeld heeft (nextLevel == 'aal2')
-      final requiresMfa = !isGoogleUser || isAdminRoute || nextLevel == 'aal2';
+      // - Vrijgesteld voor seeded testaccounts (@hub.local) voor frictieloos lokaal testen
+      final requiresMfa =
+          (!isGoogleUser || isAdminRoute || nextLevel == 'aal2') && !isSeededUser;
 
       if (requiresMfa) {
         // Geval A: Nog geen MFA factor geregistreerd -> verplicht instellen
@@ -91,10 +94,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
       }
 
-      // Geval C: Volledig geauthenticeerd of vrijgestelde Google gebruiker
-      if (currentLevel == 'aal2' || isGoogleUser) {
+      // Geval C: Volledig geauthenticeerd, vrijgestelde Google gebruiker of seeded testgebruiker
+      if (currentLevel == 'aal2' || isGoogleUser || isSeededUser) {
         // Indien op root, auth of voltooide MFA schermen, stuur door naar dashboard
-        if (path == '/' || isPublicRoute || (path.startsWith('/mfa') && currentLevel == 'aal2')) {
+        if (path == '/' ||
+            isPublicRoute ||
+            (path.startsWith('/mfa') && (currentLevel == 'aal2' || isSeededUser))) {
           return '/dashboard';
         }
       }

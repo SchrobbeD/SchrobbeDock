@@ -142,6 +142,17 @@ INSERT INTO auth.identities (
 ) ON CONFLICT (id) DO NOTHING;
 
 -- --------------------------------------------------------------------
+-- 3.1 2FA STATUS REGISTREREN VOOR SEED GEBRUIKERS
+-- Geeft de accounts de status '2FA Ingeschakeld' zonder dat handmatige verificatie vereist is
+-- --------------------------------------------------------------------
+INSERT INTO auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+VALUES 
+    ('11111111-ffff-ffff-ffff-111111111111', '11111111-1111-1111-1111-111111111111', 'Seeded Authenticator App', 'totp', 'verified', NOW(), NOW(), 'DUMMYSECRET111111'),
+    ('33333333-ffff-ffff-ffff-333333333333', '33333333-3333-3333-3333-333333333333', 'Seeded Authenticator App', 'totp', 'verified', NOW(), NOW(), 'DUMMYSECRET333333'),
+    ('44444444-ffff-ffff-ffff-444444444444', '44444444-4444-4444-4444-444444444444', 'Seeded Authenticator App', 'totp', 'verified', NOW(), NOW(), 'DUMMYSECRET444444')
+ON CONFLICT (id) DO NOTHING;
+
+-- --------------------------------------------------------------------
 -- 4. PROFIELEN SYNCHRONISEREN IN PUBLIC.PROFILES
 -- --------------------------------------------------------------------
 INSERT INTO public.profiles (id, email, first_name, last_name, preferences)
