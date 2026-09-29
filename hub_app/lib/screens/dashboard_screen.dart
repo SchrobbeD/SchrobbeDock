@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_license.dart';
 import '../providers.dart';
+import '../widgets/theme_customizer_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -14,6 +15,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isCheckingPendingInvite = false;
+  int _mobileNavIndex = 0;
 
   @override
   void initState() {
@@ -186,73 +188,417 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  void _showAppInfoDialog(UserLicense license) {
+    final app = license.app;
+    final theme = Theme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.layers_outlined,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      app?.name ?? 'Applicatie Details',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Slug: ${app?.slug ?? license.appId}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(),
+              const SizedBox(height: 12),
+              _buildInfoRow(context, 'Licentie Tier', license.tier.toUpperCase()),
+              const SizedBox(height: 8),
+              _buildInfoRow(context, 'Toegewezen Rol', license.role),
+              const SizedBox(height: 8),
+              _buildInfoRow(
+                context,
+                'Geldig Tot',
+                license.validUntil != null
+                    ? '${license.validUntil!.day.toString().padLeft(2, '0')}-${license.validUntil!.month.toString().padLeft(2, '0')}-${license.validUntil!.year}'
+                    : 'Onbeperkt actief',
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.shield_outlined,
+                        size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Toegang wordt centraal geverifieerd via SchrobbeDock Single Sign-On.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Sluiten'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showUserActionMenu(BuildContext context, bool isSuperAdmin, String userEmail) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    child: Text(
+                      userEmail.isNotEmpty ? userEmail[0].toUpperCase() : 'U',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(userEmail, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(isSuperAdmin ? 'Super Administrator' : 'Ecosysteem Gebruiker'),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.palette_outlined),
+                  title: const Text('Uiterlijk & Thema'),
+                  subtitle: const Text('Kleur- en donkere modus personalisatie'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ThemeCustomizerDialog.show(context);
+                  },
+                ),
+                if (!isSuperAdmin)
+                  ListTile(
+                    leading: const Icon(Icons.vpn_key_outlined),
+                    title: const Text('Uitnodigingscode Inwisselen'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showClaimCodeDialog();
+                    },
+                  ),
+                if (isSuperAdmin)
+                  ListTile(
+                    leading: const Icon(Icons.admin_panel_settings_outlined),
+                    title: const Text('Admin Beheer'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/admin/invites');
+                    },
+                  ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.redAccent),
+                  title: const Text('Uitloggen', style: TextStyle(color: Colors.redAccent)),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final supabase = ref.read(supabaseClientProvider);
+                    await supabase.auth.signOut();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final user = ref.watch(currentUserProvider);
     final isSuperAdmin = ref.watch(isSuperAdminProvider);
     final licensesAsync = ref.watch(userLicensesProvider);
+    final isMobile = MediaQuery.of(context).size.width < 650;
+    final userEmail = user?.email ?? '';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SchrobbeDock Hub'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.layers_outlined,
+                color: theme.colorScheme.primary,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'SchrobbeDock Hub',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         actions: [
-          if (!isSuperAdmin)
+          // Snelkoppeling naar Thema Modal op desktop
+          if (!isMobile)
+            IconButton(
+              tooltip: 'Uiterlijk & Thema',
+              icon: const Icon(Icons.palette_outlined),
+              onPressed: () => ThemeCustomizerDialog.show(context),
+            ),
+
+          if (!isSuperAdmin && !isMobile)
             IconButton(
               tooltip: 'Uitnodigingscode inwisselen',
               icon: const Icon(Icons.vpn_key_outlined),
               onPressed: _showClaimCodeDialog,
             ),
-          if (isSuperAdmin)
-            FilledButton.tonalIcon(
-              onPressed: () => context.go('/admin/invites'),
-              icon: const Icon(Icons.admin_panel_settings, size: 18),
-              label: const Text('Admin Beheer'),
-            ),
-          if (user?.email != null)
+
+          if (isSuperAdmin && !isMobile)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilledButton.tonalIcon(
+                onPressed: () => context.go('/admin/invites'),
+                icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
+                label: const Text('Admin Beheer'),
+              ),
+            ),
+
+          // User Avatar met Dropdown Menu
+          Padding(
+            padding: const EdgeInsets.only(right: 12, left: 4),
+            child: PopupMenuButton<String>(
+              tooltip: 'Gebruikersmenu',
+              offset: const Offset(0, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: Colors.white,
                 child: Text(
-                  user!.email!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  userEmail.isNotEmpty ? userEmail[0].toUpperCase() : 'U',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
               ),
+              onSelected: (value) async {
+                switch (value) {
+                  case 'theme':
+                    ThemeCustomizerDialog.show(context);
+                    break;
+                  case 'claim':
+                    _showClaimCodeDialog();
+                    break;
+                  case 'admin':
+                    context.go('/admin/invites');
+                    break;
+                  case 'logout':
+                    final supabase = ref.read(supabaseClientProvider);
+                    await supabase.auth.signOut();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem<String>(
+                  enabled: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userEmail,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isSuperAdmin ? 'Super Administrator' : 'Gebruiker',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'theme',
+                  child: Row(
+                    children: [
+                      Icon(Icons.palette_outlined, size: 20),
+                      SizedBox(width: 12),
+                      Text('Uiterlijk & Thema'),
+                    ],
+                  ),
+                ),
+                if (!isSuperAdmin)
+                  const PopupMenuItem<String>(
+                    value: 'claim',
+                    child: Row(
+                      children: [
+                        Icon(Icons.vpn_key_outlined, size: 20),
+                        SizedBox(width: 12),
+                        Text('Code Inwisselen'),
+                      ],
+                    ),
+                  ),
+                if (isSuperAdmin)
+                  const PopupMenuItem<String>(
+                    value: 'admin',
+                    child: Row(
+                      children: [
+                        Icon(Icons.admin_panel_settings_outlined, size: 20),
+                        SizedBox(width: 12),
+                        Text('Admin Beheer'),
+                      ],
+                    ),
+                  ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 20, color: Colors.redAccent),
+                      SizedBox(width: 12),
+                      Text('Uitloggen', style: TextStyle(color: Colors.redAccent)),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          IconButton(
-            tooltip: 'Uitloggen',
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final supabase = ref.read(supabaseClientProvider);
-              await supabase.auth.signOut();
-            },
           ),
         ],
       ),
+      bottomNavigationBar: isMobile
+          ? NavigationBar(
+              selectedIndex: _mobileNavIndex,
+              onDestinationSelected: (idx) {
+                setState(() => _mobileNavIndex = idx);
+                if (idx == 1) {
+                  ThemeCustomizerDialog.show(context);
+                } else if (idx == 2) {
+                  _showUserActionMenu(context, isSuperAdmin, userEmail);
+                }
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: 'Apps',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.palette_outlined),
+                  selectedIcon: Icon(Icons.palette),
+                  label: 'Thema',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'Account',
+                ),
+              ],
+            )
+          : null,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Beschikbare Applicaties & Licenties',
-                  style: theme.textTheme.headlineSmall?.copyWith(
+                  'Mijn Applicaties',
+                  style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
-                  'Centraal overzicht van de applicaties waarvoor jouw account geautoriseerd is.',
+                  'Selecteer een applicatie om direct te starten.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
                 Expanded(
                   child: licensesAsync.when(
                     data: (licenses) {
@@ -271,15 +617,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       return GridView.builder(
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 360,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 1.3,
+                          maxCrossAxisExtent: 320,
+                          crossAxisSpacing: 20,
+                          mainAxisSpacing: 20,
+                          childAspectRatio: 1.25,
                         ),
                         itemCount: licenses.length,
                         itemBuilder: (context, index) {
                           final license = licenses[index];
-                          return _AppLicenseCard(license: license);
+                          return _SimpleAppCard(
+                            license: license,
+                            onInfoTap: () => _showAppInfoDialog(license),
+                            onLaunchTap: () {
+                              final appName =
+                                  license.app?.name ?? 'de applicatie';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '$appName wordt gestart...',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                          );
                         },
                       );
                     },
@@ -309,6 +672,98 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SimpleAppCard extends StatelessWidget {
+  final UserLicense license;
+  final VoidCallback onInfoTap;
+  final VoidCallback onLaunchTap;
+
+  const _SimpleAppCard({
+    required this.license,
+    required this.onInfoTap,
+    required this.onLaunchTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final app = license.app;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onLaunchTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Bovenbalk van de kaart: Icoon links, Info knopje rechtsboven
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.launch_outlined,
+                      size: 26,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Informatie & Licentiedetails',
+                    icon: Icon(
+                      Icons.info_outline,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: onInfoTap,
+                  ),
+                ],
+              ),
+              const Spacer(),
+              // Applicatienaam (strak, prominent)
+              Text(
+                app?.name ?? 'Onbekende App',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Text(
+                    'Klik om te openen',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 14,
+                    color: theme.colorScheme.primary,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -392,7 +847,7 @@ class _ClaimInviteCardState extends ConsumerState<_ClaimInviteCard> {
     final theme = Theme.of(context);
 
     return Card(
-      elevation: 2,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
@@ -457,91 +912,6 @@ class _ClaimInviteCardState extends ConsumerState<_ClaimInviteCard> {
                     )
                   : const Icon(Icons.check_circle_outline),
               label: const Text('Licenties Activeren'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AppLicenseCard extends StatelessWidget {
-  final UserLicense license;
-
-  const _AppLicenseCard({required this.license});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final app = license.app;
-
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  child: Icon(
-                    Icons.dashboard_customize_outlined,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    app?.name ?? 'Onbekende App',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Slug: ${app?.slug ?? license.appId}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
-                fontFamily: 'monospace',
-              ),
-            ),
-            const Spacer(),
-            Row(
-              children: [
-                Chip(
-                  label: Text('Tier: ${license.tier.toUpperCase()}'),
-                  backgroundColor: theme.colorScheme.secondaryContainer,
-                  labelStyle: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSecondaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text(license.role),
-                  backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                  labelStyle: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
             ),
           ],
         ),

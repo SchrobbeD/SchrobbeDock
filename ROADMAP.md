@@ -18,7 +18,17 @@
   - Migratie [20260924234500_google_oauth_invite_claim.sql](file:///c:/Users/robbe/Documents/SchrobbeDock/supabase/migrations/20260924234500_google_oauth_invite_claim.sql) met bijgewerkte `handle_new_user()` trigger (OAuth profielondersteuning en naamparsing) en atomic `claim_invitation(target_code)` RPC met row-level locking.
   - In [register_screen.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/screens/register_screen.dart) directe *"Aanmelden & Registreren met Google"* knop toegevoegd met code-caching via `SharedPreferences`.
   - In [dashboard_screen.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/screens/dashboard_screen.dart) automatische inwisseling na login, Zero-Trust fallback claim card voor accounts zonder licenties, en een universele inwisselknop in de navigatiebalk.
-- **Git Status**: Alle wijzigingen succesvol gecommit en gepusht naar `main`. Werkboom is schoon.
+- **Ecosysteem-brede Thema & Layout Personalisatie (Warm Amber & Slate)**:
+  - Supabase migratie [20260929213000_user_theme_preferences.sql](file:///c:/Users/robbe/Documents/SchrobbeDock/supabase/migrations/20260929213000_user_theme_preferences.sql) met `preferences` JSONB kolom, auto-sync PostgreSQL trigger naar `auth.users.raw_user_meta_data` (zero-latency claim in sessie JWT), en veilige `update_user_preferences` RPC.
+  - Modulaire themamodule in [hub_app/lib/theme/schrobbedock_theme.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/theme/schrobbedock_theme.dart) met Deep Slate dark mode (`#0F172A`, `#1E293B`, `#334155`), gecureerde templates (Warm Amber & Roest [default], Ocean Deep, Emerald Forest, Midnight Violet, Slate Monolith) en dynamic `ThemeData` generator.
+  - Riverpod `themePreferencesProvider` (Notifier) met automatische DB-sync en offline caching in `SharedPreferences`.
+  - Vernieuwde Hub-layout in [dashboard_screen.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/screens/dashboard_screen.dart):
+    - Top `AppBar` met SchrobbeDock branding en ronde User Avatar met dropdown (Profiel, Uiterlijk & Thema, Code Inwisselen, Admin Beheer, Uitloggen).
+    - Responsive `BottomNavigationBar` voor mobiele weergaves (< 650px).
+    - Simpele, klikbare App Cards zonder ruis, met een discreet info-knopje `(i)` rechtsboven voor licentie- en appdetails in een nette popup.
+  - [theme_customizer_dialog.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/widgets/theme_customizer_dialog.dart): interactieve dialog met modus-switch (Systeem/Licht/Donker), template presets en custom color picker met live preview en hex-code invoer.
+  - 100% testdekking en lint-vrij: unit tests in [theme_preferences_test.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/test/theme_preferences_test.dart) en `flutter analyze` geslaagd.
+- **Git Workflow**: Werkzaamheden uitgevoerd op feature branch `feat/theme-personalization-layout` (lokaal gecommit, niet gepusht naar remote).
 
 ---
 
@@ -34,25 +44,7 @@
     - Universele/modulaire Flutter feedback modal/widget die eenvoudig in elke app (Spoke) geïmporteerd kan worden.
     - Beheer-/overzichtsscherm in de centrale Hub voor admins.
 
-### 2. Ecosysteem-brede Thema & Layout Personalisatie (Oranje Accentkleur in Hub & Spokes)
-- **Doel**: Gebruikers stellen hun favoriete layout en kleurenpalet (met als eerste focus een warm/energiek **Oranje palet**) in via de Hub, waarna **álle Spoke applicaties** deze voorkeur automatisch en consistent per gebruiker overnemen.
-- **Architectuur (Hub & Spoke Distributie)**:
-  - **Centrale Supabase Backend**:
-    - `public.profiles`: kolom `preferences jsonb DEFAULT '{"theme_mode": "system", "accent_color": "orange", "density": "comfortable"}'::jsonb`.
-    - **RLS**: Gebruikers kunnen uitsluitend hun eigen `preferences` inzien en bijwerken (`auth.uid() = id`).
-    - **Zero-Latency Sync Trigger**: Een PostgreSQL trigger spiegelt gewijzigde `preferences` direct door naar `auth.users.raw_user_meta_data`. Hierdoor beschikken zowel de Hub als alle Spokes direct bij koude start over de kleurvoorkeur in het lokale sessie-JWT (`supabase.auth.currentUser.userMetadata`), zónder extra database round-trips of UI-knipperingen (FOUC).
-  - **Spoke Applicatie Integratie**:
-    - **Shared Design Token Library / Contract**: Een gedeelde package of model (`schrobbedock_theme`) waarin het kleurensysteem (licht/donker, oranje tinten `#F97316` / `#EA580C`, layout margins) centraal is gedefinieerd.
-    - Elke Spoke app initialiseert zijn `MaterialApp` / `ThemeData` via de Riverpod provider die direct luistert naar de `userMetadata['preferences']` van de centrale sessie.
-    - Wijzigt een gebruiker zijn thema in de Hub of Spoke? Realtime Supabase broadcast of sessie-update synchroniseert dit live naar alle openstaande applicaties.
-  - **Licentie & Toegang**:
-    - Beschikbaar voor **elke actieve gebruiker** over alle geautoriseerde Spokes heen.
-    - Optionele uitbreiding: B2B/Enterprise organisaties kunnen desgewenst een verplicht bedrijfs-accent (branding) afdwingen via organisatie-licenties.
-  - **Frontend Implementatie (Flutter Hub & Spokes)**:
-    - Riverpod `themeModeProvider` en `accentColorProvider`.
-    - Live theme switcher in het gebruikersprofiel met oranje preset (`Colors.deepOrange` / hex tokens) en density toggle.
-
-### 3. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
+### 2. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
 - **Doel**: 
   1. Platform Admins kunnen vanuit de Hub gebruikers deactiveren of definitief verwijderen uit het ecosysteem.
   2. Gebruikers kunnen via een profieloverzicht (`/profile`) hun opgeslagen accountgegevens raadplegen en zelfstandig hun account definitief laten verwijderen (Right to be Forgotten).
