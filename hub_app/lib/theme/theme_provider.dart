@@ -197,7 +197,17 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
   Future<void> _cacheLocally(ThemePreferences prefs) async {
     try {
       final sp = ref.read(sharedPreferencesProvider) ?? await SharedPreferences.getInstance();
-      await sp.setString(_localPrefsKey, jsonEncode(prefs.toJson()));
+      final jsonStr = jsonEncode(prefs.toJson());
+      final modeStr = prefs.themeMode == ThemeMode.light
+          ? 'light'
+          : (prefs.themeMode == ThemeMode.dark ? 'dark' : 'system');
+      final primaryHex = colorToHex(prefs.primaryColor);
+      final secondaryHex = colorToHex(prefs.secondaryColor);
+
+      await sp.setString(_localPrefsKey, jsonStr);
+      await sp.setString('theme_mode', modeStr);
+      await sp.setString('primary_color', primaryHex);
+      await sp.setString('secondary_color', secondaryHex);
     } catch (_) {}
   }
 }

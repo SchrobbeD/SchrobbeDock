@@ -8,46 +8,84 @@
   <meta name="description" content="SchrobbeDock - Modulair Applicatie-ecosysteem">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Synchrone thema-injectie vóór rendering (voorkomt elke flash: licht én donker) -->
+  <!-- Synchrone thema-detectie en pre-paint styling (direct vóór rendering) -->
   <script>
     (function() {
       try {
-        var raw = localStorage.getItem('flutter.schrobbedock_theme_preferences') || 
-                  localStorage.getItem('schrobbedock_theme_preferences');
         var isDark = true;
         var primary = '#EA580C';
         var secondary = '#B45309';
 
-        if (raw) {
-          var p = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          if (p.theme_mode === 'light') {
-            isDark = false;
-          } else if (p.theme_mode === 'dark') {
-            isDark = true;
-          } else if (p.theme_mode === 'system') {
-            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // Doorzoek alle localStorage-sleutels (ongeacht of ze 'flutter.' prefix hebben of niet)
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i) || '';
+          var v = localStorage.getItem(k) || '';
+          if (!v) continue;
+
+          // 1. Check op JSON-blob (schrobbedock_theme_preferences)
+          if (k.indexOf('theme_preferences') !== -1 || k.indexOf('schrobbedock') !== -1) {
+            try {
+              var p = typeof v === 'string' ? JSON.parse(v) : v;
+              if (p.theme_mode === 'light') isDark = false;
+              else if (p.theme_mode === 'dark') isDark = true;
+              else if (p.theme_mode === 'system') {
+                isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+              }
+              if (p.primary_color) primary = p.primary_color;
+              if (p.secondary_color) secondary = p.secondary_color;
+            } catch(e) {}
           }
-          if (p.primary_color) primary = p.primary_color;
-          if (p.secondary_color) secondary = p.secondary_color;
+
+          // 2. Check op losse theme_mode sleutel
+          if (k.indexOf('theme_mode') !== -1) {
+            if (v.indexOf('light') !== -1) isDark = false;
+            else if (v.indexOf('dark') !== -1) isDark = true;
+            else if (v.indexOf('system') !== -1) {
+              isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            }
+          }
+
+          // 3. Check op losse primary_color sleutel
+          if (k.indexOf('primary_color') !== -1 || k.indexOf('primary') !== -1) {
+            if (v.indexOf('#') !== -1) {
+              var hexMatch = v.match(/#[0-9a-fA-F]{6}/);
+              if (hexMatch) primary = hexMatch[0];
+            } else if (v.indexOf('0x') !== -1 || v.indexOf('0X') !== -1) {
+              primary = '#' + v.replace(/0x[0-9a-fA-F]{2}/i, '');
+            }
+          }
+
+          // 4. Check op losse secondary_color sleutel
+          if (k.indexOf('secondary_color') !== -1 || k.indexOf('secondary') !== -1) {
+            if (v.indexOf('#') !== -1) {
+              var hexMatch2 = v.match(/#[0-9a-fA-F]{6}/);
+              if (hexMatch2) secondary = hexMatch2[0];
+            }
+          }
         }
 
+        // Bepaal de definitieve achtergrond en contrastkleuren
         var bg = isDark ? '#0F172A' : '#F8FAFC';
         var textColor = isDark ? '#F8FAFC' : '#0F172A';
-        var spinnerBorder = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)';
+        var trackBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)';
 
-        var style = document.createElement('style');
-        style.id = 'schrobbedock-preboot-theme';
-        style.textContent = 
+        // Pas direct het html-element aan
+        document.documentElement.style.backgroundColor = bg;
+
+        // Injecteer de preboot stijlen direct in HEAD
+        var styleEl = document.createElement('style');
+        styleEl.id = 'schrobbedock-preboot-style';
+        styleEl.textContent = 
           'html, body { background-color: ' + bg + ' !important; color: ' + textColor + ' !important; margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; } ' +
           '#splash-logo { background: linear-gradient(135deg, ' + primary + ', ' + secondary + ') !important; } ' +
-          '#splash-spinner { border-color: ' + spinnerBorder + ' !important; border-top-color: ' + primary + ' !important; }';
-        document.head.appendChild(style);
+          '#splash-spinner { border-color: ' + trackBorder + ' !important; border-top-color: ' + primary + ' !important; }';
+        document.head.appendChild(styleEl);
       } catch (e) {}
     })();
   </script>
 
   <style>
-    /* Standaard fallback stijlen voor splash */
+    /* Basis fallback stijlen voor de splash loader */
     #schrobbedock-splash {
       position: fixed;
       inset: 0;
@@ -69,7 +107,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #EA580C, #B45309);
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
       animation: pulse 1.8s infinite ease-in-out;
     }
@@ -79,7 +116,6 @@
       width: 26px;
       height: 26px;
       border: 3px solid rgba(255, 255, 255, 0.15);
-      border-top-color: #EA580C;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -93,7 +129,7 @@
       50% { transform: scale(1.05); opacity: 1; }
     }
 
-    /* Verberg standaard debug loading bar */
+    /* Verberg standaard browser progress indicator */
     .flutter-loader, [role="progressbar"] {
       display: none !important;
     }
@@ -139,10 +175,10 @@
         }
       }
 
-      // 1. Luister naar het officiële Flutter first frame event
+      // 1. Officiële Flutter first frame listener
       window.addEventListener('flutter-first-frame', removeSplash);
 
-      // 2. Fallback polling: controleer elke 40ms of de Flutter view aanwezig is
+      // 2. Snelle polling fallback (40ms)
       var checkInterval = setInterval(function() {
         if (document.querySelector('flutter-view, flt-glass-pane, canvas, flt-scene')) {
           clearInterval(checkInterval);
@@ -150,7 +186,7 @@
         }
       }, 40);
 
-      // 3. Absolute maximale timeout: na 1200ms ALTIJD verwijderen zodat het nooit hangt
+      // 3. Harde timeout (1200ms)
       setTimeout(function() {
         clearInterval(checkInterval);
         removeSplash();
