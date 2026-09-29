@@ -8,7 +8,7 @@
   <meta name="description" content="SchrobbeDock - Modulair Applicatie-ecosysteem">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Directe Tema-initialisatie in HEAD (voorkomt witte flikkering / FOUC op F5) -->
+  <!-- Directe Dynamische Thema-injectie in HEAD (0 ms vóór eerste paint) -->
   <script>
     (function() {
       try {
@@ -19,7 +19,7 @@
         var secondary = '#B45309';
 
         if (raw) {
-          var p = JSON.parse(raw);
+          var p = typeof raw === 'string' ? JSON.parse(raw) : raw;
           if (p.theme_mode === 'light') {
             isDark = false;
           } else if (p.theme_mode === 'dark') {
@@ -35,7 +35,15 @@
 
         var bg = isDark ? '#0F172A' : '#F8FAFC';
         document.documentElement.style.backgroundColor = bg;
-        document.write('<style>html, body { background-color: ' + bg + ' !important; margin: 0; padding: 0; }</style>');
+        
+        // Injecteer direct synchroon de exacte achtergrond, logo-verloop en spinner-kleur van de gebruiker
+        document.write(
+          '<style id="schrobbedock-dynamic-loader-theme">' +
+          'html, body { background-color: ' + bg + ' !important; margin: 0; padding: 0; } ' +
+          '#splash-icon { background: linear-gradient(135deg, ' + primary + ', ' + secondary + ') !important; } ' +
+          '#splash-spinner { border-top-color: ' + primary + ' !important; }' +
+          '</style>'
+        );
       } catch (e) {}
     })();
   </script>
@@ -83,7 +91,6 @@
       width: 26px;
       height: 26px;
       border: 3px solid rgba(150, 150, 150, 0.2);
-      border-top-color: #EA580C;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -97,7 +104,7 @@
       50% { transform: scale(1.05); opacity: 1; }
     }
 
-    /* Verberg de standaard witte/blauwe flutter debug-loading balk bovenin */
+    /* Verberg de standaard debug-loading balk */
     .flutter-loader, [role="progressbar"] {
       display: none !important;
     }
@@ -116,9 +123,9 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!-- Elegante Splash Scherm met thematische achtergrond -->
+  <!-- Elegante Splash Scherm met dynamische themakleuren -->
   <div id="schrobbedock-splash">
-    <div class="splash-logo" id="splash-icon" style="background: linear-gradient(135deg, #EA580C, #B45309);">
+    <div class="splash-logo" id="splash-icon">
       <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
         <line x1="4" y1="22" x2="4" y2="15"></line>
@@ -128,22 +135,7 @@
   </div>
 
   <script>
-    // Kleuren van het splash logo afstemmen op de actieve voorkeuren
     (function() {
-      try {
-        var raw = localStorage.getItem('flutter.schrobbedock_theme_preferences') || 
-                  localStorage.getItem('schrobbedock_theme_preferences');
-        if (raw) {
-          var p = JSON.parse(raw);
-          var primary = p.primary_color || '#EA580C';
-          var secondary = p.secondary_color || '#B45309';
-          var logo = document.getElementById('splash-icon');
-          var spinner = document.getElementById('splash-spinner');
-          if (logo) logo.style.background = 'linear-gradient(135deg, ' + primary + ', ' + secondary + ')';
-          if (spinner) spinner.style.borderTopColor = primary;
-        }
-      } catch (e) {}
-
       // Verberg splash zodra de Flutter canvas/view gemonteerd is
       var observer = new MutationObserver(function(mutations, obs) {
         var flutterView = document.querySelector('flutter-view, flt-glass-pane');
