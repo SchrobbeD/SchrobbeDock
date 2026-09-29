@@ -27,8 +27,11 @@
     - Responsive `BottomNavigationBar` voor mobiele weergaves (< 650px).
     - Simpele, klikbare App Cards zonder ruis, met een discreet info-knopje `(i)` rechtsboven voor licentie- en appdetails in een nette popup.
   - [theme_customizer_dialog.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/widgets/theme_customizer_dialog.dart): interactieve dialog met modus-switch (Systeem/Licht/Donker), template presets en custom color picker met live preview en hex-code invoer.
+  - Zero-flash startup & persistentie gerealiseerd met synchrone SharedPreferences preload en live `localStorage` scanner in [index.html](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/web/index.html).
   - 100% testdekking en lint-vrij: unit tests in [theme_preferences_test.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/test/theme_preferences_test.dart) en `flutter analyze` geslaagd.
-- **Git Workflow**: Werkzaamheden uitgevoerd op feature branch `feat/theme-personalization-layout` (lokaal gecommit, niet gepusht naar remote).
+  - **Testscenario Voortgang**: Test 1 t/m 8.2 zijn succesvol afgerond en geverifieerd.
+  - **🔴 Startpunt Volgende Sessie**: Stap 8.3 (onderzoek en oplossing van resterende console errors bij mobiel herschalen/renderen) gevolgd door Test 9 (Admin beheer & Spoke licentiekaarten).
+- **Git Workflow**: Werkzaamheden staan lokaal vastgelegd op feature branch `feat/theme-personalization-layout`. **Nog NIET gemerged naar `main`** totdat stap 8.3 en test 9 volledig groen zijn.
 
 ---
 
