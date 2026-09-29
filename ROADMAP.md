@@ -63,6 +63,21 @@
     - **Admin Hub (`/admin/invites` tab Gebruikers)**: Rode actieknop *"Gebruiker Verwijderen"* met bevestigingsdialoog ("Typ de naam over om te bevestigen").
     - **Self-Service Profiel (`/profile`)**: Overzicht van opgeslagen gegevens (naam, e-mail, telefoon, adres, gekoppelde login provider zoals Google), plus een gevarenzone met *"Account Definitief Verwijderen"*.
 
+### 3. Exclusief / Beperkt Toegankelijk Thema ("RobHub" Parodie Thema)
+- **Doel**:
+  - Een discreet en exclusief parodiethema ("RobHub") geïnspireerd op het bekende kleurenpalet en de typografie (puur zwart/diepzwart achtergrond, kenmerkend fel geeloranje `#FFA31A`, wit, en vette afgeronde typografie).
+  - De app-balk en dashboardbranding transformeren voor gebruikers met dit thema van "SchrobbeDock Hub" naar de herkenbare **RobHub** badge (`Rob` in wit, `Hub` in zwarte letters binnen een fel geeloranje afgerond vlak).
+- **Kindvriendelijk & Zero-Leak Beveiliging**:
+  - Dit thema mag **strikt uitsluitend** zichtbaar zijn en geselecteerd kunnen worden door een select clubje gebruikers dat hiervoor expliciet door de beheerder is geautoriseerd.
+  - Voor alle overige accounts (standaard gebruikers en kinderen) bestaat dit thema nergens in de themakeuzelijst of in de UI.
+- **Architectuur & Impact (Hub & Spoke)**:
+  - **Database (Supabase)**:
+    - Toegangsflag toevoegen aan `public.profiles` (bijv. `can_access_robhub BOOLEAN DEFAULT false` of een array `allowed_exclusive_themes TEXT[]`).
+    - Alleen Platform Admins mogen deze vlag toekennen of intrekken via een schakelaar in het Admin Beheer (`/admin/invites` -> Gebruikersoverzicht).
+  - **Frontend (Flutter)**:
+    - In `theme_customizer_dialog.dart`: het RobHub-sjabloon wordt enkel gerenderd als de profiel-vlag actief is voor de ingelogde gebruiker.
+    - In `dashboard_screen.dart` / AppBar: dynamische header-widget die bij actief RobHub-thema de kenmerkende logo-badge toont.
+
 ### 4. Documentatie: Repository README & Beheerdershandleiding
 - **README.md (Developer Onboarding)**:
   - Overzicht van de Hub & Spoke ecosysteem architectuur.
@@ -71,4 +86,5 @@
 - **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`)**:
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
+
 
