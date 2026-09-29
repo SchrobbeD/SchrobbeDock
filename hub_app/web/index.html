@@ -21,38 +21,26 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    /* SchrobbeDock Splash Overlay */
+    /* Subtiele Splash Overlay (nooit blokkerend) */
     #schrobbedock-splash {
       position: fixed;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100vw;
       height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 99999;
+      z-index: 10;
       pointer-events: none;
-      transition: opacity 0.25s ease-out;
-    }
-
-    .splash-logo {
-      width: 58px;
-      height: 58px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45);
-      animation: pulse 1.8s infinite ease-in-out;
+      transition: opacity 0.2s ease-out;
     }
 
     .splash-spinner {
-      margin-top: 24px;
-      width: 24px;
-      height: 24px;
-      border: 3px solid rgba(255, 255, 255, 0.15);
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(255, 255, 255, 0.12);
+      border-top-color: #EA580C;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -61,48 +49,32 @@
       to { transform: rotate(360deg); }
     }
 
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 0.92; }
-      50% { transform: scale(1.05); opacity: 1; }
-    }
-
-    /* Verberg standaard browser progress indicator */
+    /* Verberg standaard debug loading bar */
     .flutter-loader, [role="progressbar"] {
       display: none !important;
     }
   </style>
 
-  <!-- Dynamische synchronisatie met actieve gebruikersvoorkeuren vóór de eerste verfbeurt -->
+  <!-- Dynamische themakleur voor spinner en lichte modus override indien gekozen -->
   <script>
     (function() {
       try {
         var raw = localStorage.getItem('flutter.schrobbedock_theme_preferences') || 
                   localStorage.getItem('schrobbedock_theme_preferences');
-        
-        var primary = '#EA580C';
-        var secondary = '#B45309';
-        var isLight = false;
-
         if (raw) {
           var p = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          if (p.primary_color) primary = p.primary_color;
-          if (p.secondary_color) secondary = p.secondary_color;
-          if (p.theme_mode === 'light') isLight = true;
-        }
+          var primary = p.primary_color || '#EA580C';
+          var isLight = p.theme_mode === 'light';
 
-        var styleEl = document.createElement('style');
-        styleEl.id = 'schrobbedock-theme-override';
-        
-        var css = '#splash-icon { background: linear-gradient(135deg, ' + primary + ', ' + secondary + ') !important; } ' +
-                  '#splash-spinner { border-top-color: ' + primary + ' !important; } ';
-        
-        if (isLight) {
-          css += 'html, body { background-color: #F8FAFC !important; color: #0F172A !important; } ' +
-                 '.splash-spinner { border-color: rgba(0, 0, 0, 0.12) !important; border-top-color: ' + primary + ' !important; }';
+          var styleEl = document.createElement('style');
+          var css = '.splash-spinner { border-top-color: ' + primary + ' !important; } ';
+          if (isLight) {
+            css += 'html, body { background-color: #F8FAFC !important; color: #0F172A !important; } ' +
+                   '.splash-spinner { border-color: rgba(0, 0, 0, 0.12) !important; border-top-color: ' + primary + ' !important; }';
+          }
+          styleEl.textContent = css;
+          document.head.appendChild(styleEl);
         }
-        
-        styleEl.textContent = css;
-        document.head.appendChild(styleEl);
       } catch (e) {}
     })();
   </script>
@@ -120,34 +92,38 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!-- Elegante Splash Scherm -->
+  <!-- Subtiele laadindicator die NOOIT kan blijven hangen -->
   <div id="schrobbedock-splash">
-    <div class="splash-logo" id="splash-icon">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-        <line x1="4" y1="22" x2="4" y2="15"></line>
-      </svg>
-    </div>
-    <div class="splash-spinner" id="splash-spinner"></div>
+    <div class="splash-spinner"></div>
   </div>
 
   <script>
     (function() {
-      // Verberg splash vloeiend zodra Flutter engine de canvas/view toont
-      var observer = new MutationObserver(function(mutations, obs) {
-        var flutterView = document.querySelector('flutter-view, flt-glass-pane');
-        if (flutterView) {
+      function removeSplash() {
+        var splash = document.getElementById('schrobbedock-splash');
+        if (splash) {
+          splash.style.opacity = '0';
           setTimeout(function() {
-            var splash = document.getElementById('schrobbedock-splash');
-            if (splash) {
-              splash.style.opacity = '0';
-              setTimeout(function() { splash.remove(); }, 250);
+            if (splash && splash.parentNode) {
+              splash.parentNode.removeChild(splash);
             }
-          }, 60);
-          obs.disconnect();
+          }, 200);
         }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
+      }
+
+      // 1. Actieve polling elke 40ms: verdwijnt direct zodra Flutter DOM zichtbaar is
+      var checkInterval = setInterval(function() {
+        if (document.querySelector('flutter-view, flt-glass-pane, canvas, flt-scene')) {
+          clearInterval(checkInterval);
+          removeSplash();
+        }
+      }, 40);
+
+      // 2. Harde veiligheidstimeout: verdwijnt ALTIJD na maximaal 800ms
+      setTimeout(function() {
+        clearInterval(checkInterval);
+        removeSplash();
+      }, 800);
     })();
   </script>
 
