@@ -6,13 +6,96 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="SchrobbeDock - Modulair Applicatie-ecosysteem">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Synchrone thema-injectie vóór rendering (voorkomt elke flash: licht én donker) -->
+  <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem('flutter.schrobbedock_theme_preferences') || 
+                  localStorage.getItem('schrobbedock_theme_preferences');
+        var isDark = true;
+        var primary = '#EA580C';
+        var secondary = '#B45309';
+
+        if (raw) {
+          var p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          if (p.theme_mode === 'light') {
+            isDark = false;
+          } else if (p.theme_mode === 'dark') {
+            isDark = true;
+          } else if (p.theme_mode === 'system') {
+            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
+          if (p.primary_color) primary = p.primary_color;
+          if (p.secondary_color) secondary = p.secondary_color;
+        }
+
+        var bg = isDark ? '#0F172A' : '#F8FAFC';
+        var textColor = isDark ? '#F8FAFC' : '#0F172A';
+        var spinnerBorder = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)';
+
+        var style = document.createElement('style');
+        style.id = 'schrobbedock-preboot-theme';
+        style.textContent = 
+          'html, body { background-color: ' + bg + ' !important; color: ' + textColor + ' !important; margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; } ' +
+          '#splash-logo { background: linear-gradient(135deg, ' + primary + ', ' + secondary + ') !important; } ' +
+          '#splash-spinner { border-color: ' + spinnerBorder + ' !important; border-top-color: ' + primary + ' !important; }';
+        document.head.appendChild(style);
+      } catch (e) {}
+    })();
+  </script>
 
   <style>
-    /* Directe Dark Slate achtergrond - voorkomt wit scherm */
-    html, body {
-      background-color: #0F172A;
-      margin: 0;
-      padding: 0;
+    /* Standaard fallback stijlen voor splash */
+    #schrobbedock-splash {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      pointer-events: none;
+      transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .splash-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #EA580C, #B45309);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+      animation: pulse 1.8s infinite ease-in-out;
+    }
+
+    .splash-spinner {
+      margin-top: 22px;
+      width: 26px;
+      height: 26px;
+      border: 3px solid rgba(255, 255, 255, 0.15);
+      border-top-color: #EA580C;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(1.05); opacity: 1; }
+    }
+
+    /* Verberg standaard debug loading bar */
+    .flutter-loader, [role="progressbar"] {
+      display: none !important;
     }
   </style>
 
@@ -29,6 +112,52 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div id="schrobbedock-splash">
+    <div class="splash-logo" id="splash-logo">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+        <line x1="4" y1="22" x2="4" y2="15"></line>
+      </svg>
+    </div>
+    <div class="splash-spinner" id="splash-spinner"></div>
+  </div>
+
+  <script>
+    (function() {
+      var removed = false;
+      function removeSplash() {
+        if (removed) return;
+        removed = true;
+        var splash = document.getElementById('schrobbedock-splash');
+        if (splash) {
+          splash.style.opacity = '0';
+          setTimeout(function() {
+            if (splash && splash.parentNode) {
+              splash.parentNode.removeChild(splash);
+            }
+          }, 250);
+        }
+      }
+
+      // 1. Luister naar het officiële Flutter first frame event
+      window.addEventListener('flutter-first-frame', removeSplash);
+
+      // 2. Fallback polling: controleer elke 40ms of de Flutter view aanwezig is
+      var checkInterval = setInterval(function() {
+        if (document.querySelector('flutter-view, flt-glass-pane, canvas, flt-scene')) {
+          clearInterval(checkInterval);
+          removeSplash();
+        }
+      }, 40);
+
+      // 3. Absolute maximale timeout: na 1200ms ALTIJD verwijderen zodat het nooit hangt
+      setTimeout(function() {
+        clearInterval(checkInterval);
+        removeSplash();
+      }, 1200);
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
