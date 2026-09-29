@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,12 @@ import 'theme_presets.dart';
 
 const String _localPrefsKey = 'schrobbedock_theme_preferences';
 
+/// Provider voor SharedPreferences instantie, geïnjecteerd via ProviderScope in main()
+final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
+
 class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
+  StreamSubscription<AuthState>? _authSubscription;
+
   SupabaseClient? get _supabase {
     try {
       return ref.read(supabaseClientProvider);
@@ -24,47 +30,70 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
 
   @override
   ThemePreferences build() {
-    Future.microtask(() => _initPreferences());
-    return ThemePreferences.defaultPreferences;
-  }
+    ref.onDispose(() {
+      _authSubscription?.cancel();
+    });
 
-  Future<void> _initPreferences() async {
-    // 1. Snelle start uit sessie metadata (0 ms latentie)
-    final user = _supabase?.auth.currentUser;
-    if (user != null && user.userMetadata?['preferences'] != null) {
-      final metaPrefs = ThemePreferences.fromUserMetadata(user.userMetadata);
-      state = metaPrefs;
-      return;
-    }
+    final prefs = ref.watch(sharedPreferencesProvider);
+    ThemePreferences initial = ThemePreferences.defaultPreferences;
 
-    // 2. Lokale SharedPreferences fallback
-    try {
-      final prefs = await SharedPreferences.getInstance();
+    // 1. Direct synchroon inladen vanuit SharedPreferences (0 ms FOUC-vrije start op F5)
+    if (prefs != null) {
       final localJson = prefs.getString(_localPrefsKey);
       if (localJson != null) {
-        final decoded = jsonDecode(localJson) as Map<String, dynamic>;
-        state = ThemePreferences.fromJson(decoded);
-        return;
+        try {
+          final decoded = jsonDecode(localJson) as Map<String, dynamic>;
+          initial = ThemePreferences.fromJson(decoded);
+        } catch (_) {}
+      }
+    }
+
+    // 2. Setup auth luisteraar en achtergrond synchronisatie met Supabase
+    Future.microtask(() => _setupSync(hasLocalCache: initial != ThemePreferences.defaultPreferences));
+
+    return initial;
+  }
+
+  void _setupSync({required bool hasLocalCache}) {
+    final client = _supabase;
+    if (client == null) return;
+
+    // Luister naar auth veranderingen (bijv. inloggen van een andere gebruiker of switch)
+    _authSubscription?.cancel();
+    _authSubscription = client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn ||
+          data.event == AuthChangeEvent.userUpdated) {
+        _syncFromProfile(forceApply: true);
+      }
+    });
+
+    // Haal altijd de meest actuele profiel-voorkeuren op van de server
+    if (client.auth.currentUser != null) {
+      _syncFromProfile(forceApply: !hasLocalCache);
+    }
+  }
+
+  Future<void> _syncFromProfile({bool forceApply = false}) async {
+    final client = _supabase;
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) return;
+
+    try {
+      final response = await client
+          .from('profiles')
+          .select('preferences')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (response != null && response['preferences'] != null) {
+        final dbPrefs = ThemePreferences.fromJson(
+            response['preferences'] as Map<String, dynamic>);
+        if (forceApply || state != dbPrefs) {
+          state = dbPrefs;
+          await _cacheLocally(dbPrefs);
+        }
       }
     } catch (_) {}
-
-    // 3. Indien ingelogd maar nog niet in metadata gecached, ophalen uit database
-    if (user != null && _supabase != null) {
-      try {
-        final response = await _supabase!
-            .from('profiles')
-            .select('preferences')
-            .eq('id', user.id)
-            .maybeSingle();
-
-        if (response != null && response['preferences'] != null) {
-          final dbPrefs = ThemePreferences.fromJson(
-              response['preferences'] as Map<String, dynamic>);
-          state = dbPrefs;
-          _cacheLocally(dbPrefs);
-        }
-      } catch (_) {}
-    }
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -138,28 +167,36 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
     state = newPrefs;
     await _cacheLocally(newPrefs);
 
-    final user = _supabase?.auth.currentUser;
-    if (user != null && _supabase != null) {
+    final client = _supabase;
+    final user = client?.auth.currentUser;
+    if (user != null && client != null) {
       try {
-        await _supabase!.rpc(
+        // 1. Update in profiles tabel (centrale bron in Supabase)
+        await client.rpc(
           'update_user_preferences',
           params: {'new_prefs': newPrefs.toJson()},
         );
       } catch (_) {
-        // Fallback: update direct op de profiles tabel indien de RPC nog niet gemigreerd is
         try {
-          await _supabase!
+          await client
               .from('profiles')
               .update({'preferences': newPrefs.toJson()})
               .eq('id', user.id);
         } catch (_) {}
       }
+
+      // 2. Synchroniseer user metadata in auth sessie zodat het JWT direct up-to-date is
+      try {
+        await client.auth.updateUser(
+          UserAttributes(data: {'preferences': newPrefs.toJson()}),
+        );
+      } catch (_) {}
     }
   }
 
   Future<void> _cacheLocally(ThemePreferences prefs) async {
     try {
-      final sp = await SharedPreferences.getInstance();
+      final sp = ref.read(sharedPreferencesProvider) ?? await SharedPreferences.getInstance();
       await sp.setString(_localPrefsKey, jsonEncode(prefs.toJson()));
     } catch (_) {}
   }
