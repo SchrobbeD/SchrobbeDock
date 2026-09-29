@@ -16,7 +16,23 @@ ON CONFLICT (id) DO UPDATE SET
     is_active = EXCLUDED.is_active;
 
 -- --------------------------------------------------------------------
--- 2. ACCOUNTS AANMAKEN (AUTH.USERS & AUTH.IDENTITIES)
+-- 2. SEED UITNODIGINGEN VOOR TESTGEBRUIKERS
+-- --------------------------------------------------------------------
+INSERT INTO public.invitations (id, code, is_used, expires_at)
+VALUES 
+    ('55555555-5555-5555-5555-555555555555', 'INVITE-USER1-SEED', false, NOW() + INTERVAL '365 days'),
+    ('66666666-6666-6666-6666-666666666666', 'INVITE-USER2-SEED', false, NOW() + INTERVAL '365 days')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO public.invitation_licenses (invitation_id, app_id, tier, role)
+VALUES
+    ('55555555-5555-5555-5555-555555555555', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pro', 'user'),
+    ('66666666-6666-6666-6666-666666666666', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'basic', 'user'),
+    ('66666666-6666-6666-6666-666666666666', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'pro', 'manager')
+ON CONFLICT (invitation_id, app_id) DO NOTHING;
+
+-- --------------------------------------------------------------------
+-- 3. ACCOUNTS AANMAKEN (AUTH.USERS & AUTH.IDENTITIES)
 -- Wachtwoord voor alle accounts is 'password123'
 -- --------------------------------------------------------------------
 
@@ -46,7 +62,7 @@ INSERT INTO auth.identities (
     format('{"sub":"%s","email":"%s"}', '11111111-1111-1111-1111-111111111111', 'admin@hub.local')::jsonb,
     'email', '11111111-1111-1111-1111-111111111111',
     NOW(), NOW(), NOW()
-) ON CONFLICT (id, provider) DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
 -- B. Test User 1: user1@hub.local (Jan Jansen - Planner gebruiker)
 INSERT INTO auth.users (
@@ -60,7 +76,7 @@ INSERT INTO auth.users (
     crypt('password123', gen_salt('bf')),
     NOW(), NOW(),
     '{"provider":"email","providers":["email"]}',
-    '{"first_name":"Jan","last_name":"Jansen","preferences":{"theme_mode":"system","primary_color":"#EA580C","secondary_color":"#B45309","preset":"amber_rust"}}',
+    '{"first_name":"Jan","last_name":"Jansen","invite_code":"INVITE-USER1-SEED","preferences":{"theme_mode":"system","primary_color":"#EA580C","secondary_color":"#B45309","preset":"amber_rust"}}',
     NOW(), NOW()
 ) ON CONFLICT (id) DO UPDATE SET
     encrypted_password = crypt('password123', gen_salt('bf')),
@@ -74,7 +90,7 @@ INSERT INTO auth.identities (
     format('{"sub":"%s","email":"%s"}', '33333333-3333-3333-3333-333333333333', 'user1@hub.local')::jsonb,
     'email', '33333333-3333-3333-3333-333333333333',
     NOW(), NOW(), NOW()
-) ON CONFLICT (id, provider) DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
 -- C. Test User 2: user2@hub.local (Sophie Peeters - Magazijn & Planner beheerder)
 INSERT INTO auth.users (
@@ -88,7 +104,7 @@ INSERT INTO auth.users (
     crypt('password123', gen_salt('bf')),
     NOW(), NOW(),
     '{"provider":"email","providers":["email"]}',
-    '{"first_name":"Sophie","last_name":"Peeters","preferences":{"theme_mode":"dark","primary_color":"#2563EB","secondary_color":"#1D4ED8","preset":"ocean_deep"}}',
+    '{"first_name":"Sophie","last_name":"Peeters","invite_code":"INVITE-USER2-SEED","preferences":{"theme_mode":"dark","primary_color":"#2563EB","secondary_color":"#1D4ED8","preset":"ocean_deep"}}',
     NOW(), NOW()
 ) ON CONFLICT (id) DO UPDATE SET
     encrypted_password = crypt('password123', gen_salt('bf')),
@@ -102,10 +118,10 @@ INSERT INTO auth.identities (
     format('{"sub":"%s","email":"%s"}', '44444444-4444-4444-4444-444444444444', 'user2@hub.local')::jsonb,
     'email', '44444444-4444-4444-4444-444444444444',
     NOW(), NOW(), NOW()
-) ON CONFLICT (id, provider) DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
 -- --------------------------------------------------------------------
--- 3. PROFIELEN SYNCHRONISEREN IN PUBLIC.PROFILES
+-- 4. PROFIELEN SYNCHRONISEREN IN PUBLIC.PROFILES
 -- --------------------------------------------------------------------
 INSERT INTO public.profiles (id, email, first_name, last_name, preferences)
 VALUES 
@@ -119,22 +135,8 @@ ON CONFLICT (id) DO UPDATE SET
     preferences = EXCLUDED.preferences;
 
 -- --------------------------------------------------------------------
--- 4. APPLICATIELICENTIES KOPPELEN
+-- 5. SUPER ADMIN LICENTIE KOPPELEN
 -- --------------------------------------------------------------------
-
--- Super Admin: Heeft Hub Admin
 INSERT INTO public.user_licenses (user_id, app_id, tier, role, valid_until)
 VALUES ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'enterprise', 'super_admin', null)
-ON CONFLICT (user_id, app_id) DO NOTHING;
-
--- User 1 (Jan Jansen): Licentie voor SchrobbeDock Planner (Pro)
-INSERT INTO public.user_licenses (user_id, app_id, tier, role, valid_until)
-VALUES ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pro', 'user', null)
-ON CONFLICT (user_id, app_id) DO NOTHING;
-
--- User 2 (Sophie Peeters): Licenties voor Planner én Magazijn (Manager)
-INSERT INTO public.user_licenses (user_id, app_id, tier, role, valid_until)
-VALUES 
-    ('44444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'basic', 'user', null),
-    ('44444444-4444-4444-4444-444444444444', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'pro', 'manager', null)
 ON CONFLICT (user_id, app_id) DO NOTHING;
