@@ -29,9 +29,9 @@
   - [theme_customizer_dialog.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/widgets/theme_customizer_dialog.dart): interactieve dialog met modus-switch (Systeem/Licht/Donker), template presets en custom color picker met live preview en hex-code invoer.
   - Zero-flash startup & persistentie gerealiseerd met synchrone SharedPreferences preload en live `localStorage` scanner in [index.html](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/web/index.html).
   - 100% testdekking en lint-vrij: unit tests in [theme_preferences_test.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/test/theme_preferences_test.dart) en `flutter analyze` geslaagd.
-  - **Testscenario Voortgang**: Test 1 t/m 8.2 zijn succesvol afgerond en geverifieerd.
-  - **🔴 Startpunt Volgende Sessie**: Stap 8.3 (onderzoek en oplossing van resterende console errors bij mobiel herschalen/renderen) gevolgd door Test 9 (Admin beheer & Spoke licentiekaarten).
-- **Git Workflow**: Werkzaamheden staan lokaal vastgelegd op feature branch `feat/theme-personalization-layout`. **Nog NIET gemerged naar `main`** totdat stap 8.3 en test 9 volledig groen zijn.
+  - **Testscenario Voortgang**: Test 1 t/m 9 zijn succesvol afgerond en geverifieerd (inclusief mobiele navbar index-reset en async lifecycle).
+  - **Huidige Taak / Focus**: Implementatie van **Feature 3 (Exclusief RobHub Parodiethema met invite-configuratie & zero-leak autorisatie)** alvorens te mergen naar `main`.
+- **Git Workflow**: Werkzaamheden staan lokaal vastgelegd op feature branch `feat/theme-personalization-layout`. **Nog NIET gemerged naar `main`** totdat Feature 3 (RobHub) volledig is geïmplementeerd en geverifieerd.
 
 ---
 
@@ -66,7 +66,8 @@
     - **Admin Hub (`/admin/invites` tab Gebruikers)**: Rode actieknop *"Gebruiker Verwijderen"* met bevestigingsdialoog ("Typ de naam over om te bevestigen").
     - **Self-Service Profiel (`/profile`)**: Overzicht van opgeslagen gegevens (naam, e-mail, telefoon, adres, gekoppelde login provider zoals Google), plus een gevarenzone met *"Account Definitief Verwijderen"*.
 
-### 3. Exclusief / Beperkt Toegankelijk Thema ("RobHub" Parodie Thema)
+### 3. Exclusief / Beperkt Toegankelijk Thema ("RobHub" Parodie Thema) (Voltooid ✅)
+- **Status**: Volledig geïmplementeerd en gevalideerd met zero-leak beveiliging, vergrendelde dark mode, migratie `20260930213000_robhub_exclusive_theme.sql` en geautomatiseerde account-inrichting via `handle_new_user()` en `claim_invitation()`.
 - **Doel**:
   - Een discreet en exclusief parodiethema ("RobHub") geïnspireerd op het bekende kleurenpalet en de typografie (puur zwart/diepzwart achtergrond, kenmerkend fel geeloranje `#FFA31A`, wit, en vette afgeronde typografie).
   - De app-balk en dashboardbranding transformeren voor gebruikers met dit thema van "SchrobbeDock Hub" naar de herkenbare **RobHub** badge (`Rob` in wit, `Hub` in zwarte letters binnen een fel geeloranje afgerond vlak).
@@ -75,11 +76,16 @@
   - Voor alle overige accounts (standaard gebruikers en kinderen) bestaat dit thema nergens in de themakeuzelijst of in de UI.
 - **Architectuur & Impact (Hub & Spoke)**:
   - **Database (Supabase)**:
-    - Toegangsflag toevoegen aan `public.profiles` (bijv. `can_access_robhub BOOLEAN DEFAULT false` of een array `allowed_exclusive_themes TEXT[]`).
-    - Alleen Platform Admins mogen deze vlag toekennen of intrekken via een schakelaar in het Admin Beheer (`/admin/invites` -> Gebruikersoverzicht).
+    - Toegangsflag toevoegen aan `public.profiles` (`can_access_robhub BOOLEAN NOT NULL DEFAULT false`).
+    - Kolommen toevoegen aan `public.invitations`: `can_access_robhub BOOLEAN NOT NULL DEFAULT false` en `initial_theme_template TEXT DEFAULT 'warm_amber'`.
+    - In `claim_invitation()` RPC: bij het claimen van de code worden de RobHub-toegangsrechten en het gekozen startthema direct overgenomen naar het profiel en de `preferences` van de gebruiker.
+    - Alleen Platform Admins mogen deze vlag toekennen of intrekken via:
+      1. Een toggle & start-thema dropdown bij het genereren van een nieuwe uitnodiging (`/admin/invites`).
+      2. Een schakelaar in het Gebruikersoverzicht (`/admin/invites` -> tab Gebruikers) voor bestaande accounts.
   - **Frontend (Flutter)**:
+    - In `create_invite_dialog.dart`: selectievakje *"Toegang tot RobHub thema toestaan"* en dropdown *"Standaard Startthema"* (bijv. Warm Amber, Ocean Deep, RobHub indien toegestaan).
     - In `theme_customizer_dialog.dart`: het RobHub-sjabloon wordt enkel gerenderd als de profiel-vlag actief is voor de ingelogde gebruiker.
-    - In `dashboard_screen.dart` / AppBar: dynamische header-widget die bij actief RobHub-thema de kenmerkende logo-badge toont.
+    - In `dashboard_screen.dart` / AppBar: dynamische header-widget die bij actief RobHub-thema de kenmerkende logo-badge toont (`Rob` wit, `Hub` zwart op `#FFA31A`).
 
 ### 4. Documentatie: Repository README & Beheerdershandleiding
 - **README.md (Developer Onboarding)**:
@@ -89,5 +95,25 @@
 - **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`)**:
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
+
+### 5. Multi-Factor Authenticatie (MFA) Uitbreidingen: SMS, E-mail & Passkeys (WebAuthn)
+- **Doel**:
+  - Naast de huidige authenticator-app (TOTP / RFC 6238) gebruikers de keuze bieden uit alternatieve en complementaire 2FA-methoden: SMS OTP, E-mail OTP en hardware/biometrische Passkeys (FIDO2 / WebAuthn).
+- **Haalbaarheid & Architectuur (Supabase Auth & Flutter)**:
+  - **1. SMS OTP (Phone MFA)**:
+    - *Haalbaarheid*: Volledig ondersteund in Supabase Auth.
+    - *Supabase Backend*: Vereist activering van de SMS provider (bijv. Twilio, MessageBird) in het Supabase Auth dashboard met API-sleutels.
+    - *Aandachtspunt / Kosten*: Verzendkosten per SMS en rate limiting tegen SMS pumping/misbruik.
+  - **2. E-mail OTP**:
+    - *Haalbaarheid*: Supabase ondersteunt e-mail OTP codes (`verifyOtp` met `type: email`).
+    - *Architectuur*: Als secundaire factor na wachtwoord/OAuth vereist dit een step-up flow of e-mail challenge binnen de sessieverificatie alvorens AAL2 geclaimd wordt.
+  - **3. Passkeys (FIDO2 / WebAuthn)**:
+    - *Haalbaarheid*: Zeer modern en veilig (TouchID, FaceID, Windows Hello, YubiKey).
+    - *Frontend*: Flutter Web maakt gebruik van `window.navigator.credentials` (WebAuthn API); Flutter mobile/desktop gebruikt de Credential Manager API.
+    - *Supabase Backend*: WebAuthn registratie gekoppeld aan de centrale identity en MFA assurance levels (`aal2`).
+- **Impact op Hub & Spoke**:
+  - Gecentraliseerd in de Hub: Gebruiker kan via `/profile` of `/mfa/enroll` de gewenste factor(en) registreren en beheren.
+  - Hybride/Zero-Trust afdwinging: Het session-level token (`aal2`) blijft uniform voor alle aangesloten Spoke-apps, ongeacht welke factor gebruikt is.
+
 
 

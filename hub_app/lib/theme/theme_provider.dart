@@ -63,17 +63,20 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
     _authSubscription = client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedIn ||
           data.event == AuthChangeEvent.userUpdated) {
-        _syncFromProfile(forceApply: true);
+        syncFromProfile(forceApply: true);
+      } else if (data.event == AuthChangeEvent.signedOut) {
+        state = ThemePreferences.defaultPreferences;
+        ref.invalidate(canAccessRobHubProvider);
       }
     });
 
     // Haal altijd de meest actuele profiel-voorkeuren op van de server
     if (client.auth.currentUser != null) {
-      _syncFromProfile(forceApply: !hasLocalCache);
+      syncFromProfile(forceApply: !hasLocalCache);
     }
   }
 
-  Future<void> _syncFromProfile({bool forceApply = false}) async {
+  Future<void> syncFromProfile({bool forceApply = false}) async {
     final client = _supabase;
     final user = client?.auth.currentUser;
     if (client == null || user == null) return;
@@ -81,22 +84,39 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
     try {
       final response = await client
           .from('profiles')
-          .select('preferences')
+          .select('preferences, can_access_robhub')
           .eq('id', user.id)
           .maybeSingle();
 
-      if (response != null && response['preferences'] != null) {
-        final dbPrefs = ThemePreferences.fromJson(
-            response['preferences'] as Map<String, dynamic>);
-        if (forceApply || state != dbPrefs) {
-          state = dbPrefs;
-          await _cacheLocally(dbPrefs);
+      ref.invalidate(canAccessRobHubProvider);
+
+      if (response != null) {
+        final canAccessRobHub = response['can_access_robhub'] as bool? ?? false;
+        if (response['preferences'] != null) {
+          var dbPrefs = ThemePreferences.fromJson(
+              response['preferences'] as Map<String, dynamic>);
+
+          // Als RobHub toegang is ingetrokken maar thema staat nog op RobHub:
+          // val automatisch terug naar Warm Amber
+          if (!canAccessRobHub && dbPrefs.preset == 'rob_hub') {
+            dbPrefs = dbPrefs.copyWith(
+              preset: 'amber_rust',
+              primaryColor: const Color(0xFFEA580C),
+              secondaryColor: const Color(0xFFB45309),
+            );
+          }
+
+          if (forceApply || state != dbPrefs) {
+            state = dbPrefs;
+            await _cacheLocally(dbPrefs);
+          }
         }
       }
     } catch (_) {}
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
+    if (state.preset == 'rob_hub') return;
     final updated = state.copyWith(themeMode: mode);
     await _updatePreferences(updated);
   }
@@ -106,6 +126,7 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
       primaryColor: preset.primaryColor,
       secondaryColor: preset.secondaryColor,
       preset: preset.id,
+      themeMode: preset.id == 'rob_hub' ? ThemeMode.dark : state.themeMode,
     );
     await _updatePreferences(updated);
   }
@@ -216,3 +237,22 @@ final themePreferencesProvider =
     NotifierProvider<ThemePreferencesNotifier, ThemePreferences>(
   ThemePreferencesNotifier.new,
 );
+
+/// Provider om te controleren of de huidige ingelogde gebruiker geautoriseerd is voor het exclusieve RobHub thema
+final canAccessRobHubProvider = FutureProvider<bool>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return false;
+
+  final client = ref.watch(supabaseClientProvider);
+  try {
+    final response = await client
+        .from('profiles')
+        .select('can_access_robhub')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    return response?['can_access_robhub'] as bool? ?? false;
+  } catch (_) {
+    return false;
+  }
+});

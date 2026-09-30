@@ -146,30 +146,39 @@ class AppTheme {
   }
 
   static ThemeData buildDarkTheme(ThemePreferences prefs) {
+    final isRobHub = prefs.preset == 'rob_hub';
+
     final baseColorScheme = ColorScheme.fromSeed(
       seedColor: prefs.primaryColor,
       brightness: Brightness.dark,
     );
 
+    final surfaceColor = isRobHub ? const Color(0xFF141416) : slate800;
+    final surfaceContainerHighest = isRobHub ? const Color(0xFF1F1F23) : slate850;
+    final outlineColor = isRobHub ? const Color(0xFF2E2E32) : slate700;
+    final scaffoldBg = isRobHub ? const Color(0xFF09090B) : slate900;
+    final onPrimaryColor = isRobHub ? Colors.black : Colors.white;
+
     final colorScheme = baseColorScheme.copyWith(
       primary: prefs.primaryColor,
       secondary: prefs.secondaryColor,
-      surface: slate800,
-      surfaceContainerHighest: slate850,
-      outline: slate700,
-      outlineVariant: slate700,
+      surface: surfaceColor,
+      surfaceContainerHighest: surfaceContainerHighest,
+      outline: outlineColor,
+      outlineVariant: outlineColor,
+      onPrimary: onPrimaryColor,
       onSurface: const Color(0xFFF8FAFC),
-      onSurfaceVariant: slate400,
+      onSurfaceVariant: isRobHub ? const Color(0xFFA1A1AA) : slate400,
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: slate900,
-      canvasColor: slate900,
+      scaffoldBackgroundColor: scaffoldBg,
+      canvasColor: scaffoldBg,
       appBarTheme: AppBarTheme(
-        backgroundColor: slate900,
+        backgroundColor: scaffoldBg,
         foregroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -180,35 +189,35 @@ class AppTheme {
           color: Color(0xFFF8FAFC),
           letterSpacing: -0.3,
         ),
-        shape: const Border(
-          bottom: BorderSide(color: slate700, width: 1),
+        shape: Border(
+          bottom: BorderSide(color: outlineColor, width: 1),
         ),
       ),
       cardTheme: CardThemeData(
-        color: slate800,
+        color: surfaceColor,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: slate700, width: 1),
+          side: BorderSide(color: outlineColor, width: 1),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: slate800,
+        backgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: slate700, width: 1),
+          side: BorderSide(color: outlineColor, width: 1),
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: slate800,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: slate800,
+        backgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
         indicatorColor: prefs.primaryColor.withValues(alpha: 0.2),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
@@ -235,17 +244,19 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: prefs.primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: onPrimaryColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          textStyle: TextStyle(
+            fontWeight: isRobHub ? FontWeight.w800 : FontWeight.w600,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFFF8FAFC),
-          side: const BorderSide(color: slate700),
+          side: BorderSide(color: outlineColor),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -253,22 +264,22 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: slate850,
+        fillColor: surfaceContainerHighest,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: slate700),
+          borderSide: BorderSide(color: outlineColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: slate700),
+          borderSide: BorderSide(color: outlineColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: prefs.primaryColor, width: 2),
         ),
       ),
-      dividerTheme: const DividerThemeData(
-        color: slate700,
+      dividerTheme: DividerThemeData(
+        color: outlineColor,
         thickness: 1,
         space: 1,
       ),

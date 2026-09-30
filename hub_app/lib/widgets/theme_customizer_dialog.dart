@@ -107,6 +107,12 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
     final theme = Theme.of(context);
     final prefs = ref.watch(themePreferencesProvider);
     final notifier = ref.read(themePreferencesProvider.notifier);
+    final canAccessRobHub = ref.watch(canAccessRobHubProvider).value ?? false;
+    final availablePresets = canAccessRobHub
+        ? ThemePresets.allPresets
+        : ThemePresets.standardPresets;
+
+    final isRobHub = prefs.preset == 'rob_hub';
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -165,33 +171,83 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
               ),
               const SizedBox(height: 12),
 
-              // Weergavemodus SegmentedButton (Wrapped in SingleChildScrollView to prevent overflow)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      icon: Icon(Icons.brightness_auto, size: 16),
-                      label: Text('Systeem'),
+              // Weergavemodus SegmentedButton
+              if (isRobHub)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141416),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFFFA31A).withValues(alpha: 0.4),
                     ),
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      icon: Icon(Icons.light_mode, size: 16),
-                      label: Text('Licht'),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      icon: Icon(Icons.dark_mode, size: 16),
-                      label: Text('Donker (Slate)'),
-                    ),
-                  ],
-                  selected: {prefs.themeMode},
-                  onSelectionChanged: (selected) {
-                    notifier.setThemeMode(selected.first);
-                  },
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.dark_mode,
+                        size: 18,
+                        color: Color(0xFFFFA31A),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'RobHub is exclusief vergrendeld op Pitch-Black Donker thema.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: const Color(0xFFFFA31A),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFFFFA31A).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'DONKER',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFFA31A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        icon: Icon(Icons.brightness_auto, size: 16),
+                        label: Text('Systeem'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: Icon(Icons.light_mode, size: 16),
+                        label: Text('Licht'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: Icon(Icons.dark_mode, size: 16),
+                        label: Text('Donker (Slate)'),
+                      ),
+                    ],
+                    selected: {prefs.themeMode},
+                    onSelectionChanged: (selected) {
+                      notifier.setThemeMode(selected.first);
+                    },
+                  ),
                 ),
-              ),
               const SizedBox(height: 14),
 
               // Tabs: [1] Sjablonen & Opgeslagen Thema's, [2] Colorpicker & Zelf Maken
@@ -204,7 +260,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                     icon: const Icon(Icons.dashboard_customize_outlined,
                         size: 18),
                     text:
-                        'Thema\'s (${prefs.savedThemes.length + ThemePresets.allPresets.length})',
+                        'Thema\'s (${prefs.savedThemes.length + availablePresets.length})',
                   ),
                   const Tab(
                     icon: Icon(Icons.colorize, size: 18),
@@ -220,7 +276,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                   controller: _tabController,
                   children: [
                     // TAB 1: Sjablonen & Opgeslagen thema's
-                    _buildThemesTab(theme, prefs, notifier),
+                    _buildThemesTab(theme, prefs, notifier, availablePresets),
 
                     // TAB 2: Interactieve Colorpicker
                     _buildColorPickerTab(theme, prefs, notifier),
@@ -265,6 +321,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
     ThemeData theme,
     ThemePreferences prefs,
     ThemePreferencesNotifier notifier,
+    List<ThemePresetItem> availablePresets,
   ) {
     return SingleChildScrollView(
       child: Column(
@@ -425,8 +482,9 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: ThemePresets.allPresets.map((preset) {
+            children: availablePresets.map((preset) {
               final isSelected = prefs.preset == preset.id;
+              final isRobHub = preset.id == 'rob_hub';
               return InkWell(
                 onTap: () {
                   notifier.applyPreset(preset);
@@ -441,14 +499,23 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? preset.primaryColor.withValues(alpha: 0.12)
-                        : theme.colorScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.5),
+                        ? (isRobHub
+                            ? const Color(0xFF141416)
+                            : preset.primaryColor.withValues(alpha: 0.12))
+                        : (isRobHub
+                            ? const Color(0xFF141416)
+                            : theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5)),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isSelected
-                          ? preset.primaryColor
-                          : theme.colorScheme.outline.withValues(alpha: 0.5),
+                          ? (isRobHub
+                              ? const Color(0xFFFFA31A)
+                              : preset.primaryColor)
+                          : (isRobHub
+                              ? const Color(0xFFFFA31A).withValues(alpha: 0.5)
+                              : theme.colorScheme.outline
+                                  .withValues(alpha: 0.5)),
                       width: isSelected ? 2 : 1,
                     ),
                   ),
@@ -487,12 +554,43 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                         preset.name,
                         style: TextStyle(
                           fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.w500,
+                              isSelected ? FontWeight.bold : FontWeight.w600,
+                          color: isRobHub
+                              ? Colors.white
+                              : (isSelected
+                                  ? preset.primaryColor
+                                  : theme.colorScheme.onSurface),
                         ),
                       ),
+                      if (isRobHub) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFA31A),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'EXCLUSIEF',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
                       if (isSelected) ...[
                         const SizedBox(width: 8),
-                        Icon(Icons.check, size: 16, color: preset.primaryColor),
+                        Icon(
+                          Icons.check,
+                          size: 16,
+                          color: isRobHub
+                              ? const Color(0xFFFFA31A)
+                              : preset.primaryColor,
+                        ),
                       ],
                     ],
                   ),

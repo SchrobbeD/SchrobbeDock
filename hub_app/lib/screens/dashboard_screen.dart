@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_license.dart';
 import '../providers.dart';
+import '../theme/schrobbedock_theme.dart';
 import '../widgets/theme_customizer_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -43,9 +44,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           params: {'target_code': pendingCode.trim()},
         );
 
-        if (!mounted) return;
         ref.invalidate(userLicensesProvider);
+        ref.invalidate(canAccessRobHubProvider);
+        await ref
+            .read(themePreferencesProvider.notifier)
+            .syncFromProfile(forceApply: true);
 
+        if (!mounted) return;
         final apps = (result['apps'] as List<dynamic>?)?.join(', ') ?? '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -149,6 +154,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                             if (!context.mounted) return;
                             ref.invalidate(userLicensesProvider);
+                            ref.invalidate(canAccessRobHubProvider);
+                            await ref
+                                .read(themePreferencesProvider.notifier)
+                                .syncFromProfile(forceApply: true);
+
+                            if (!context.mounted) return;
                             Navigator.pop(context);
 
                             final apps = (result['apps'] as List<dynamic>?)
@@ -307,8 +318,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  void _showUserActionMenu(BuildContext context, bool isSuperAdmin, String userEmail) {
-    showModalBottomSheet(
+  Future<void> _showUserActionMenu(BuildContext context, bool isSuperAdmin, String userEmail) {
+    return showModalBottomSheet(
       context: context,
       builder: (context) {
         return SafeArea(
@@ -381,32 +392,74 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final user = ref.watch(currentUserProvider);
     final isSuperAdmin = ref.watch(isSuperAdminProvider);
     final licensesAsync = ref.watch(userLicensesProvider);
+    final themePrefs = ref.watch(themePreferencesProvider);
     final isMobile = MediaQuery.of(context).size.width < 650;
     final userEmail = user?.email ?? '';
+    final isRobHub = themePrefs.preset == 'rob_hub';
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+        title: isRobHub
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Rob',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFA31A),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Hub',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.layers_outlined,
+                      color: theme.colorScheme.primary,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Flexible(
+                    child: Text(
+                      'SchrobbeDock Hub',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
               ),
-              child: Icon(
-                Icons.layers_outlined,
-                color: theme.colorScheme.primary,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'SchrobbeDock Hub',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
         actions: [
           // Snelkoppeling naar Thema Modal op desktop
           if (!isMobile)
@@ -549,12 +602,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       bottomNavigationBar: isMobile
           ? NavigationBar(
               selectedIndex: _mobileNavIndex,
-              onDestinationSelected: (idx) {
+              onDestinationSelected: (idx) async {
                 setState(() => _mobileNavIndex = idx);
                 if (idx == 1) {
-                  ThemeCustomizerDialog.show(context);
+                  await ThemeCustomizerDialog.show(context);
+                  if (mounted) setState(() => _mobileNavIndex = 0);
                 } else if (idx == 2) {
-                  _showUserActionMenu(context, isSuperAdmin, userEmail);
+                  await _showUserActionMenu(context, isSuperAdmin, userEmail);
+                  if (mounted) setState(() => _mobileNavIndex = 0);
                 }
               },
               destinations: const [
@@ -654,7 +709,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               maxCrossAxisExtent: 320,
                               crossAxisSpacing: 20,
                               mainAxisSpacing: 20,
-                              childAspectRatio: 1.25,
+                              mainAxisExtent: 165,
                             ),
                             itemCount: licenses.length,
                             itemBuilder: (context, index) {
@@ -731,78 +786,96 @@ class _SimpleAppCard extends StatelessWidget {
     final theme = Theme.of(context);
     final app = license.app;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onLaunchTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Bovenbalk van de kaart: Icoon links, Info knopje rechtsboven
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isBounded = constraints.hasBoundedHeight;
+
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onLaunchTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: isBounded ? MainAxisSize.max : MainAxisSize.min,
+                mainAxisAlignment: isBounded
+                    ? MainAxisAlignment.spaceBetween
+                    : MainAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.launch_outlined,
-                      size: 26,
-                      color: theme.colorScheme.primary,
-                    ),
+                  // Bovenbalk van de kaart: Icoon links, Info knopje rechtsboven
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color:
+                              theme.colorScheme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.launch_outlined,
+                          size: 24,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Informatie & Licentiedetails',
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.info_outline,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: onInfoTap,
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    tooltip: 'Informatie & Licentiedetails',
-                    icon: Icon(
-                      Icons.info_outline,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed: onInfoTap,
+                  if (!isBounded) const SizedBox(height: 14),
+                  // Applicatienaam & openen-link
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        app?.name ?? 'Onbekende App',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(
+                            'Klik om te openen',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward,
+                            size: 14,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const Spacer(),
-              // Applicatienaam (strak, prominent)
-              Text(
-                app?.name ?? 'Onbekende App',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.2,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(
-                    'Klik om te openen',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward,
-                    size: 14,
-                    color: theme.colorScheme.primary,
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -861,6 +934,10 @@ class _ClaimInviteCardState extends ConsumerState<_ClaimInviteCard> {
           ),
         );
       }
+      ref.invalidate(canAccessRobHubProvider);
+      await ref
+          .read(themePreferencesProvider.notifier)
+          .syncFromProfile(forceApply: true);
       widget.onSuccess();
     } catch (e) {
       if (mounted) {

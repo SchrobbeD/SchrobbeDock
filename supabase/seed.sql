@@ -155,16 +155,17 @@ ON CONFLICT (id) DO NOTHING;
 -- --------------------------------------------------------------------
 -- 4. PROFIELEN SYNCHRONISEREN IN PUBLIC.PROFILES
 -- --------------------------------------------------------------------
-INSERT INTO public.profiles (id, email, first_name, last_name, preferences)
+INSERT INTO public.profiles (id, email, first_name, last_name, preferences, can_access_robhub)
 VALUES 
-    ('11111111-1111-1111-1111-111111111111', 'admin@hub.local', 'Super', 'Admin', '{"theme_mode":"system","primary_color":"#EA580C","secondary_color":"#B45309","preset":"amber_rust"}'::jsonb),
-    ('33333333-3333-3333-3333-333333333333', 'user1@hub.local', 'Jan', 'Jansen', '{"theme_mode":"system","primary_color":"#EA580C","secondary_color":"#B45309","preset":"amber_rust"}'::jsonb),
-    ('44444444-4444-4444-4444-444444444444', 'user2@hub.local', 'Sophie', 'Peeters', '{"theme_mode":"dark","primary_color":"#2563EB","secondary_color":"#1D4ED8","preset":"ocean_deep"}'::jsonb)
+    ('11111111-1111-1111-1111-111111111111', 'admin@hub.local', 'Super', 'Admin', '{"theme_mode":"system","primary_color":"#EA580C","secondary_color":"#B45309","preset":"amber_rust"}'::jsonb, true),
+    ('33333333-3333-3333-3333-333333333333', 'user1@hub.local', 'Jan', 'Jansen', '{"theme_mode":"system","primary_color":"#EA580C","secondary_color":"#B45309","preset":"amber_rust"}'::jsonb, false),
+    ('44444444-4444-4444-4444-444444444444', 'user2@hub.local', 'Sophie', 'Peeters', '{"theme_mode":"dark","primary_color":"#2563EB","secondary_color":"#1D4ED8","preset":"ocean_deep"}'::jsonb, false)
 ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,
     first_name = EXCLUDED.first_name,
     last_name = EXCLUDED.last_name,
-    preferences = EXCLUDED.preferences;
+    preferences = EXCLUDED.preferences,
+    can_access_robhub = EXCLUDED.can_access_robhub;
 
 -- --------------------------------------------------------------------
 -- 5. SUPER ADMIN LICENTIE KOPPELEN

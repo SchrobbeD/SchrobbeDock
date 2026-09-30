@@ -85,5 +85,45 @@ void main() {
       expect(colorToHex(parsed.savedThemes.first.primaryColor), equals('#10B981'));
       expect(parsed.savedThemes.first.themeMode, equals(ThemeMode.dark));
     });
+
+    test('ThemePresets isolates RobHub from standard presets', () {
+      expect(ThemePresets.standardPresets.any((p) => p.id == 'rob_hub'), isFalse);
+      expect(ThemePresets.allPresets.any((p) => p.id == 'rob_hub'), isTrue);
+      expect(ThemePresets.findById('rob_hub')?.primaryColor, equals(const Color(0xFFFFA31A)));
+    });
+
+    test('RobHub strictly enforces ThemeMode.dark across fromJson and copyWith', () {
+      final json = {
+        'preset': 'rob_hub',
+        'theme_mode': 'light',
+        'primary_color': '#FFA31A',
+        'secondary_color': '#E58E00',
+      };
+      final prefs = ThemePreferences.fromJson(json);
+      expect(prefs.themeMode, equals(ThemeMode.dark));
+
+      // Attempting to copyWith light mode while preset is rob_hub should keep dark mode
+      final modified = prefs.copyWith(themeMode: ThemeMode.light);
+      expect(modified.themeMode, equals(ThemeMode.dark));
+
+      // Switching away to another preset should permit themeMode changes again
+      final emerald = modified.copyWith(preset: 'emerald_mint', themeMode: ThemeMode.light);
+      expect(emerald.themeMode, equals(ThemeMode.light));
+    });
+
+    test('AppTheme builds signature pitch black and orange styling for RobHub', () {
+      const robHubPrefs = ThemePreferences(
+        preset: 'rob_hub',
+        primaryColor: Color(0xFFFFA31A),
+        secondaryColor: Color(0xFFE58E00),
+        themeMode: ThemeMode.dark,
+      );
+
+      final darkTheme = AppTheme.buildDarkTheme(robHubPrefs);
+      expect(darkTheme.scaffoldBackgroundColor, equals(const Color(0xFF09090B)));
+      expect(darkTheme.cardTheme.color, equals(const Color(0xFF141416)));
+      expect(darkTheme.colorScheme.primary, equals(const Color(0xFFFFA31A)));
+      expect(darkTheme.colorScheme.onPrimary, equals(Colors.black));
+    });
   });
 }

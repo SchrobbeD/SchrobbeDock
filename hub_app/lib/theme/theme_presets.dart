@@ -57,12 +57,31 @@ class ThemePresets {
     secondaryColor: Color(0xFF334155),
   );
 
+  static const ThemePresetItem robHub = ThemePresetItem(
+    id: 'rob_hub',
+    name: 'RobHub',
+    description: 'Exclusief parodiethema met puur zwart en fel geeloranje.',
+    primaryColor: Color(0xFFFFA31A), // Iconic RobHub Orange
+    secondaryColor: Color(0xFFE58E00), // Rich amber shadow
+  );
+
+  /// Officiële publieke presets voor iedereen
+  static const List<ThemePresetItem> standardPresets = [
+    amberRust,
+    oceanDeep,
+    emeraldForest,
+    midnightViolet,
+    slateMonolith,
+  ];
+
+  /// Alle presets inclusief exclusieve varianten (voor ID-lookup)
   static const List<ThemePresetItem> allPresets = [
     amberRust,
     oceanDeep,
     emeraldForest,
     midnightViolet,
     slateMonolith,
+    robHub,
   ];
 
   static ThemePresetItem? findById(String id) {

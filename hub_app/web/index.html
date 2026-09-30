@@ -6,7 +6,6 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="SchrobbeDock - Modulair Applicatie-ecosysteem">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Synchrone thema-detectie en pre-paint styling (direct vóór rendering) -->
   <script>
@@ -26,7 +25,8 @@
           if (k.indexOf('theme_preferences') !== -1 || k.indexOf('schrobbedock') !== -1) {
             try {
               var p = typeof v === 'string' ? JSON.parse(v) : v;
-              if (p.theme_mode === 'light') isDark = false;
+              if (p.preset === 'rob_hub') isDark = true;
+              else if (p.theme_mode === 'light') isDark = false;
               else if (p.theme_mode === 'dark') isDark = true;
               else if (p.theme_mode === 'system') {
                 isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;

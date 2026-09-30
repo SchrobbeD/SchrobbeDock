@@ -60,6 +60,8 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
             is_used,
             expires_at,
             created_at,
+            can_access_robhub,
+            initial_theme_template,
             invitation_licenses(
               app_id,
               tier,
@@ -169,6 +171,37 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
     }
   }
 
+  Future<void> _toggleUserRobHubAccess(String userId, String userEmail, bool grant) async {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      await supabase.rpc('admin_set_robhub_access', params: {
+        'target_user_id': userId,
+        'grant_access': grant,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: grant ? Colors.green : Colors.blueGrey,
+            content: Text(grant
+                ? 'RobHub-toegang toegekend aan $userEmail.'
+                : 'RobHub-toegang ingetrokken voor $userEmail (thema automatisch gereset).'),
+          ),
+        );
+        _loadUsers();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fout bij wijzigen van RobHub-toegang: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   String _generateRandomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final random = Random();
@@ -199,6 +232,8 @@ Uitnodigingscode: $code''';
     final recipientController = TextEditingController();
     final selectedAppIds = <String>{};
     int validityDays = 14;
+    bool canAccessRobHub = false;
+    String initialThemeTemplate = 'amber_rust';
 
     showDialog(
       context: context,
@@ -303,6 +338,54 @@ Uitnodigingscode: $code''';
                             ),
                             error: (e, _) => Text('Fout bij laden van apps: $e'),
                           ),
+                          const SizedBox(height: 16),
+                          const Divider(),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Thema- en Huisstijl Configuratie:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 6),
+                          CheckboxListTile(
+                            title: const Text('Toegang tot RobHub thema toestaan'),
+                            subtitle: const Text('Exclusief parodiethema met zwart en geeloranje palet'),
+                            value: canAccessRobHub,
+                            onChanged: (val) {
+                              setDialogState(() {
+                                canAccessRobHub = val ?? false;
+                                if (!canAccessRobHub && initialThemeTemplate == 'rob_hub') {
+                                  initialThemeTemplate = 'amber_rust';
+                                }
+                              });
+                            },
+                            dense: true,
+                          ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<String>(
+                            initialValue: initialThemeTemplate,
+                            decoration: const InputDecoration(
+                              labelText: 'Standaard Startthema voor Genodigde',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'amber_rust', child: Text('Warm Amber & Roest (Standaard)')),
+                              DropdownMenuItem(value: 'ocean_deep', child: Text('Ocean Deep (Blauw)')),
+                              DropdownMenuItem(value: 'emerald_forest', child: Text('Emerald Forest (Groen)')),
+                              DropdownMenuItem(value: 'midnight_violet', child: Text('Midnight Violet (Paars)')),
+                              DropdownMenuItem(value: 'slate_monolith', child: Text('Slate Monolith (Titanium)')),
+                              DropdownMenuItem(value: 'rob_hub', child: Text('RobHub (Exclusief Zwart/Oranje)')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() {
+                                  initialThemeTemplate = val;
+                                  if (val == 'rob_hub') {
+                                    canAccessRobHub = true;
+                                  }
+                                });
+                              }
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -320,6 +403,7 @@ Uitnodigingscode: $code''';
                               final code = codeController.text.trim();
                               final recipientName = recipientController.text.trim();
                               final expiresAt = DateTime.now().add(Duration(days: validityDays));
+                              final effectiveRobHubAccess = canAccessRobHub || initialThemeTemplate == 'rob_hub';
 
                               try {
                                 final inviteInsert = await supabase
@@ -328,6 +412,8 @@ Uitnodigingscode: $code''';
                                       'code': code,
                                       'recipient_name': recipientName.isEmpty ? null : recipientName,
                                       'expires_at': expiresAt.toIso8601String(),
+                                      'can_access_robhub': effectiveRobHubAccess,
+                                      'initial_theme_template': initialThemeTemplate,
                                     })
                                     .select('id')
                                     .single();
@@ -692,14 +778,37 @@ Uitnodigingscode: $code''';
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
-                        children: appNames.map((name) {
-                          return Chip(
-                            label: Text(name.toString()),
-                            backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                            visualDensity: VisualDensity.compact,
-                            labelStyle: const TextStyle(fontSize: 11),
-                          );
-                        }).toList(),
+                        children: [
+                          ...appNames.map((name) {
+                            return Chip(
+                              label: Text(name.toString()),
+                              backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                              visualDensity: VisualDensity.compact,
+                              labelStyle: const TextStyle(fontSize: 11),
+                            );
+                          }),
+                          if (invite['can_access_robhub'] == true)
+                            Chip(
+                              avatar: const Icon(Icons.star, size: 12, color: Colors.black),
+                              label: const Text('RobHub Toegestaan'),
+                              backgroundColor: const Color(0xFFFFA31A),
+                              visualDensity: VisualDensity.compact,
+                              labelStyle: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          if (invite['initial_theme_template'] != null &&
+                              invite['initial_theme_template'] != 'amber_rust')
+                            Chip(
+                              avatar: const Icon(Icons.palette_outlined, size: 12),
+                              label: Text('Startthema: ${invite['initial_theme_template']}'),
+                              backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                              visualDensity: VisualDensity.compact,
+                              labelStyle: const TextStyle(fontSize: 11),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -772,6 +881,7 @@ Uitnodigingscode: $code''';
         final firstName = u['first_name'] as String?;
         final lastName = u['last_name'] as String?;
         final hasMfa = u['has_mfa'] as bool? ?? false;
+        final canAccessRobHub = u['can_access_robhub'] as bool? ?? false;
         final createdAtRaw = u['created_at'] as String?;
         final createdAt = createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null;
 
@@ -832,6 +942,26 @@ Uitnodigingscode: $code''';
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    FilterChip(
+                      selected: canAccessRobHub,
+                      avatar: Icon(
+                        canAccessRobHub ? Icons.star : Icons.star_border,
+                        size: 14,
+                        color: canAccessRobHub ? Colors.black : Colors.grey,
+                      ),
+                      label: Text(canAccessRobHub ? 'RobHub Toegestaan' : 'Geen RobHub'),
+                      backgroundColor: canAccessRobHub
+                          ? const Color(0xFFFFA31A)
+                          : theme.colorScheme.surfaceContainerHighest,
+                      labelStyle: TextStyle(
+                        color: canAccessRobHub ? Colors.black : theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (val) => _toggleUserRobHubAccess(id, email, val),
+                    ),
+                    const SizedBox(height: 6),
                     Chip(
                       avatar: Icon(
                         hasMfa ? Icons.lock : Icons.lock_open,

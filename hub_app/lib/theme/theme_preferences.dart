@@ -121,6 +121,10 @@ class ThemePreferences {
     final secondaryHex = json['secondary_color']?.toString() ?? '#B45309';
     final presetName = json['preset']?.toString() ?? 'amber_rust';
 
+    if (presetName == 'rob_hub') {
+      mode = ThemeMode.dark;
+    }
+
     List<SavedTheme> parsedSaved = [];
     if (json['saved_themes'] is List) {
       parsedSaved = (json['saved_themes'] as List)
@@ -168,11 +172,16 @@ class ThemePreferences {
     String? preset,
     List<SavedTheme>? savedThemes,
   }) {
+    final effectivePreset = preset ?? this.preset;
+    final effectiveThemeMode = effectivePreset == 'rob_hub'
+        ? ThemeMode.dark
+        : (themeMode ?? this.themeMode);
+
     return ThemePreferences(
-      themeMode: themeMode ?? this.themeMode,
+      themeMode: effectiveThemeMode,
       primaryColor: primaryColor ?? this.primaryColor,
       secondaryColor: secondaryColor ?? this.secondaryColor,
-      preset: preset ?? this.preset,
+      preset: effectivePreset,
       savedThemes: savedThemes ?? this.savedThemes,
     );
   }

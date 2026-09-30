@@ -39,7 +39,9 @@ class HubApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.buildLightTheme(themePrefs),
       darkTheme: AppTheme.buildDarkTheme(themePrefs),
-      themeMode: themePrefs.themeMode,
+      themeMode: themePrefs.preset == 'rob_hub'
+          ? ThemeMode.dark
+          : themePrefs.themeMode,
       routerConfig: router,
     );
   }
