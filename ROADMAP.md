@@ -27,27 +27,49 @@
     - Responsive `BottomNavigationBar` voor mobiele weergaves (< 650px).
     - Simpele, klikbare App Cards zonder ruis, met een discreet info-knopje `(i)` rechtsboven voor licentie- en appdetails in een nette popup.
   - [theme_customizer_dialog.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/widgets/theme_customizer_dialog.dart): interactieve dialog met modus-switch (Systeem/Licht/Donker), template presets en custom color picker met live preview en hex-code invoer.
-  - Zero-flash startup & persistentie gerealiseerd met synchrone SharedPreferences preload en live `localStorage` scanner in [index.html](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/web/index.html).
-  - 100% testdekking en lint-vrij: unit tests in [theme_preferences_test.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/test/theme_preferences_test.dart) en `flutter analyze` geslaagd.
-  - **Testscenario Voortgang**: Test 1 t/m 9 zijn succesvol afgerond en geverifieerd (inclusief mobiele navbar index-reset en async lifecycle).
-  - **Huidige Taak / Focus**: Implementatie van **Feature 3 (Exclusief RobHub Parodiethema met invite-configuratie & zero-leak autorisatie)** alvorens te mergen naar `main`.
-- **Git Workflow**: Werkzaamheden staan lokaal vastgelegd op feature branch `feat/theme-personalization-layout`. **Nog NIET gemerged naar `main`** totdat Feature 3 (RobHub) volledig is geïmplementeerd en geverifieerd.
+  - **Ecosysteem-brede Thema & Layout Personalisatie (Warm Amber & Slate + RobHub)**:
+  - Volledig afgerond, gevalideerd met 10/10 tests, database reset en gemerged naar `main`.
+  - Inclusief exclusief parodiethema RobHub met vergrendelde dark mode, zero-leak autorisatie in uitnodigingen en profielen.
 
 ---
 
 ## Eerstvolgende Punten
 
-### 1. Nieuwe Feature: Centraal Probleem- & Feedbackmeldsysteem
-- **Doel**: Gebruikers moeten vanuit **elke app** (en de centrale Hub) laagdrempelig een probleem, bug of suggestie kunnen melden.
-- **Architectuur (Hub & Spoke)**:
-  - **Database (Supabase)**:
-    - Centrale tabel `feedback_reports` (gekoppeld aan `app_id`, `user_id`, categorie, omschrijving, device/platform metadata, screenshots).
-    - **RLS**: Gebruikers mogen enkel eigen reports inserten; alleen Platform Admins mogen alles inzien en status updaten (`open`, `in_investigation`, `resolved`).
-  - **Frontend / Clients**:
-    - Universele/modulaire Flutter feedback modal/widget die eenvoudig in elke app (Spoke) geïmporteerd kan worden.
-    - Beheer-/overzichtsscherm in de centrale Hub voor admins.
+### 1. Nieuwe Feature: Centraal Probleem- & Feedbackmeldsysteem (GitHub Integration & Shared Package)
+- **Doel**: Gebruikers moeten vanuit **elke Spoke app** (en de centrale Hub) laagdrempelig een probleem, bug of suggestie kunnen melden. Meldingen worden automatisch doorgestuurd als GitHub Issue naar de specifieke repository van die app.
+- **Architectuur & Modulaire Spoke Integratie (Hub & Spoke)**:
+  - **Shared Flutter Package (`packages/schrobbedock_feedback`)**:
+    - Een opzichzelfstaande package in de root die Spoke apps als Git dependency importeren in `pubspec.yaml`:
+      ```yaml
+      schrobbedock_feedback:
+        git:
+          url: https://github.com/SchrobbeD/SchrobbeDock.git
+          path: packages/schrobbedock_feedback
+          ref: main
+      ```
+    - **Ultra-snelle integratie in Spoke apps (1 regel code)**:
+      `SchrobbeDockFeedback.show(context, appSlug: 'dock_planner');`
+    - **Optionele power-features**:
+      - `SchrobbeDockFeedbackOverlay`: Subtiele zwevende hulp/feedback-knop onderin het scherm.
+      - Global Error Boundary / Crash Catcher: Vangt ongepaste app-fouten op en biedt de gebruiker aan om de crash direct met stacktrace te rapporteren.
+    - Bundelt dialoogvenster, screenshot preview/upload, metadata-collector (OS, browser, app-versie, schermresolutie).
+  - **Database & Storage (Supabase)**:
+    - Uitbreiding `public.apps` met `github_repo_owner` en `github_repo_name` voor dynamische multi-repo routing.
+    - Centrale tabel `public.feedback_reports` (RLS: gebruikers mogen enkel eigen rapporten inserten; Platform Admins hebben volledige lees/update-toegang).
+    - Supabase Storage bucket `feedback_attachments` voor screenshots.
+  - **GitHub Synchronisatie**:
+    - Edge Function of Database Webhook die bij een nieuw report via de GitHub REST API direct een issue aanmaakt in de gekoppelde repo (`SchrobbeD/<spoke-repo>`), inclusief inline embedded screenshot en omgevingstags.
+  - **Hub Beheer**:
+    - Overzichtsscherm in de Hub voor beheerders met statusupdates (`open`, `in_progress`, `resolved`), filters en directe links naar het GitHub Issue.
 
-### 2. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
+### 2. Gedeelde Design System & Theme Package voor Spoke Apps (`packages/schrobbedock_theme`)
+- **Doel**: Spoke apps kunnen net als de feedback module via 1 Git dependency exact hetzelfde thema- en stylingsysteem importeren.
+- **Werking**:
+  - Gedeelde Flutter package die de centrale `SchrobbeDockTheme`, kleurenpaletten, templates (inclusief RobHub) en typography bevat.
+  - Automatische koppeling met de centrale Supabase sessie/JWT (`raw_user_meta_data.preferences`): zodra een gebruiker inlogt in een Spoke app, krijgt de app direct de door de gebruiker ingestelde kleuren, donkere/lichte modus en branding.
+  - Optioneel inschakelen van de `ThemeCustomizerDialog` binnen Spoke apps.
+
+### 3. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
 - **Doel**: 
   1. Platform Admins kunnen vanuit de Hub gebruikers deactiveren of definitief verwijderen uit het ecosysteem.
   2. Gebruikers kunnen via een profieloverzicht (`/profile`) hun opgeslagen accountgegevens raadplegen en zelfstandig hun account definitief laten verwijderen (Right to be Forgotten).
@@ -65,27 +87,6 @@
   - **Frontend / Clients**:
     - **Admin Hub (`/admin/invites` tab Gebruikers)**: Rode actieknop *"Gebruiker Verwijderen"* met bevestigingsdialoog ("Typ de naam over om te bevestigen").
     - **Self-Service Profiel (`/profile`)**: Overzicht van opgeslagen gegevens (naam, e-mail, telefoon, adres, gekoppelde login provider zoals Google), plus een gevarenzone met *"Account Definitief Verwijderen"*.
-
-### 3. Exclusief / Beperkt Toegankelijk Thema ("RobHub" Parodie Thema) (Voltooid ✅)
-- **Status**: Volledig geïmplementeerd en gevalideerd met zero-leak beveiliging, vergrendelde dark mode, migratie `20260930213000_robhub_exclusive_theme.sql` en geautomatiseerde account-inrichting via `handle_new_user()` en `claim_invitation()`.
-- **Doel**:
-  - Een discreet en exclusief parodiethema ("RobHub") geïnspireerd op het bekende kleurenpalet en de typografie (puur zwart/diepzwart achtergrond, kenmerkend fel geeloranje `#FFA31A`, wit, en vette afgeronde typografie).
-  - De app-balk en dashboardbranding transformeren voor gebruikers met dit thema van "SchrobbeDock Hub" naar de herkenbare **RobHub** badge (`Rob` in wit, `Hub` in zwarte letters binnen een fel geeloranje afgerond vlak).
-- **Kindvriendelijk & Zero-Leak Beveiliging**:
-  - Dit thema mag **strikt uitsluitend** zichtbaar zijn en geselecteerd kunnen worden door een select clubje gebruikers dat hiervoor expliciet door de beheerder is geautoriseerd.
-  - Voor alle overige accounts (standaard gebruikers en kinderen) bestaat dit thema nergens in de themakeuzelijst of in de UI.
-- **Architectuur & Impact (Hub & Spoke)**:
-  - **Database (Supabase)**:
-    - Toegangsflag toevoegen aan `public.profiles` (`can_access_robhub BOOLEAN NOT NULL DEFAULT false`).
-    - Kolommen toevoegen aan `public.invitations`: `can_access_robhub BOOLEAN NOT NULL DEFAULT false` en `initial_theme_template TEXT DEFAULT 'warm_amber'`.
-    - In `claim_invitation()` RPC: bij het claimen van de code worden de RobHub-toegangsrechten en het gekozen startthema direct overgenomen naar het profiel en de `preferences` van de gebruiker.
-    - Alleen Platform Admins mogen deze vlag toekennen of intrekken via:
-      1. Een toggle & start-thema dropdown bij het genereren van een nieuwe uitnodiging (`/admin/invites`).
-      2. Een schakelaar in het Gebruikersoverzicht (`/admin/invites` -> tab Gebruikers) voor bestaande accounts.
-  - **Frontend (Flutter)**:
-    - In `create_invite_dialog.dart`: selectievakje *"Toegang tot RobHub thema toestaan"* en dropdown *"Standaard Startthema"* (bijv. Warm Amber, Ocean Deep, RobHub indien toegestaan).
-    - In `theme_customizer_dialog.dart`: het RobHub-sjabloon wordt enkel gerenderd als de profiel-vlag actief is voor de ingelogde gebruiker.
-    - In `dashboard_screen.dart` / AppBar: dynamische header-widget die bij actief RobHub-thema de kenmerkende logo-badge toont (`Rob` wit, `Hub` zwart op `#FFA31A`).
 
 ### 4. Documentatie: Repository README & Beheerdershandleiding
 - **README.md (Developer Onboarding)**:
