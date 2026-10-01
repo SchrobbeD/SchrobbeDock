@@ -84,6 +84,17 @@
       - **Database & Storage**: `screenshot_url` kolom in `public.feedback_reports` uitbreiden of aanvullen met `screenshot_urls TEXT[]` (of `JSONB` array met metadata).
       - **GitHub Issue Formatter**: Edge Function embedt alle bijlagen netjes onder elkaar of in een responsive Markdown tabel/galerij in het GitHub issue.
       - **Hub Beheer (`/admin/feedback`)**: Fotogalerij/lightbox om eenvoudig door alle bijgevoegde schermafbeeldingen van de melding te bladeren.
+  - **Prioritair Actiepunt (Volgende Sessie): Live Productie Validatie & E2E Testen (Online Omgeving)**:
+    - **Probleem**: Lokaal werkt de synchronisatie via Smee.io, maar in de live online versie (productie) lijkt de koppeling tussen GitHub en SchrobbeDock nog niet (volledig) te functioneren.
+    - **Stappenplan voor verificatie & herstel**:
+      1. **Edge Functions Deployen naar Live Supabase**: Controleren of de nieuwste Edge Functions (`github-webhook`, `sync-feedback-status` en `submit-feedback`) daadwerkelijk zijn gedeployd naar het externe productie-Supabase project.
+      2. **Productie Supabase Secrets**: Controleren/instellen van `GITHUB_FEEDBACK_TOKEN` en `GITHUB_WEBHOOK_SECRET` in de remote Supabase vault (`supabase secrets set`).
+      3. **Productie GitHub Webhook URL**: In de GitHub repository settings de webhook URL configureren naar de live Edge Function URL (`https://<remote-project-ref>.supabase.co/functions/v1/github-webhook`) met de bijbehorende Secret (zodat GitHub live pushes niet meer via de tijdelijke lokale Smee proxy hoeven te lopen).
+      4. **End-to-End Live Testen**:
+         - Bug/feedback melden via de live gehoste Hub (`one.com`).
+         - Nagaan of het issue verschijnt in GitHub met screenshot en metadata.
+         - Status wijzigen in `/admin/feedback` en controleren of het GitHub issue verandert.
+         - Issue sluiten in GitHub en controleren of het live Hub dashboard real-time wordt bijgewerkt.
 
 ### 2. Gedeelde Design System & Theme Package voor Spoke Apps (`packages/schrobbedock_theme`) [AFGEROND - v1.0.0]
 - **Doel**: Spoke apps kunnen net als de feedback module via 1 Git dependency exact hetzelfde thema- en stylingsysteem importeren.
