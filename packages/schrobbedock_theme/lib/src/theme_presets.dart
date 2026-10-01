@@ -84,6 +84,13 @@ class ThemePresets {
     robHub,
   ];
 
+  static List<ThemePresetItem> getAvailablePresets({bool hasRobHubAccess = false}) {
+    if (hasRobHubAccess) {
+      return allPresets;
+    }
+    return standardPresets;
+  }
+
   static ThemePresetItem? findById(String id) {
     for (final p in allPresets) {
       if (p.id == id) return p;

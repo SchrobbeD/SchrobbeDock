@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart' hide colorToHex;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/schrobbedock_theme.dart';
+import '../schrobbedock_theme_riverpod.dart';
 
 class ThemeCustomizerDialog extends ConsumerStatefulWidget {
-  const ThemeCustomizerDialog({super.key});
+  final SchrobbeDockThemeController? controller;
 
-  static Future<void> show(BuildContext context) {
+  const ThemeCustomizerDialog({
+    super.key,
+    this.controller,
+  });
+
+  static Future<void> show(
+    BuildContext context, {
+    SchrobbeDockThemeController? controller,
+  }) {
     return showDialog(
       context: context,
-      builder: (context) => const ThemeCustomizerDialog(),
+      builder: (context) => ThemeCustomizerDialog(controller: controller),
     );
   }
 
@@ -29,9 +37,25 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    final prefs = ref.read(themePreferencesProvider);
-    _currentPrimary = prefs.primaryColor;
-    _currentSecondary = prefs.secondaryColor;
+
+    final initialPrefs = _resolveInitialPreferences();
+    _currentPrimary = initialPrefs.primaryColor;
+    _currentSecondary = initialPrefs.secondaryColor;
+  }
+
+  ThemePreferences _resolveInitialPreferences() {
+    if (widget.controller != null) {
+      return widget.controller!.preferences;
+    }
+    final scope = SchrobbeDockThemeScope.maybeOf(context);
+    if (scope != null) {
+      return scope.preferences;
+    }
+    try {
+      return ref.read(themePreferencesProvider);
+    } catch (_) {
+      return ThemePreferences.defaultPreferences;
+    }
   }
 
   @override
@@ -40,7 +64,11 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
     super.dispose();
   }
 
-  void _showSaveThemeDialog(BuildContext context) {
+  void _showSaveThemeDialog(
+    BuildContext context,
+    ThemePreferences prefs,
+    Future<void> Function(String name) onSave,
+  ) {
     final nameController = TextEditingController(text: 'Mijn Thema');
 
     showDialog(
@@ -79,19 +107,19 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
               child: const Text('Annuleren'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 final name = nameController.text.trim();
                 if (name.isNotEmpty) {
-                  ref
-                      .read(themePreferencesProvider.notifier)
-                      .saveCurrentAsCustomTheme(name);
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: Colors.green,
-                      content: Text('Thema "$name" succesvol opgeslagen!'),
-                    ),
-                  );
+                  await onSave(name);
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.green,
+                        content: Text('Thema "$name" succesvol opgeslagen!'),
+                      ),
+                    );
+                  }
                 }
               },
               child: const Text('Opslaan'),
@@ -105,14 +133,86 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final prefs = ref.watch(themePreferencesProvider);
-    final notifier = ref.read(themePreferencesProvider.notifier);
-    final canAccessRobHub = ref.watch(canAccessRobHubProvider).value ?? false;
+    final effectiveController =
+        widget.controller ?? SchrobbeDockThemeScope.maybeOf(context);
+
+    final ThemePreferences prefs;
+    final bool canAccessRobHub;
+
+    if (effectiveController != null) {
+      prefs = effectiveController.preferences;
+      canAccessRobHub = effectiveController.canAccessRobHub;
+    } else {
+      prefs = ref.watch(themePreferencesProvider);
+      canAccessRobHub = ref.watch(canAccessRobHubProvider).value ?? false;
+    }
+
     final availablePresets = canAccessRobHub
         ? ThemePresets.allPresets
         : ThemePresets.standardPresets;
 
     final isRobHub = prefs.preset == 'rob_hub';
+
+    // Action callbacks
+    Future<void> onSetThemeMode(ThemeMode mode) async {
+      if (effectiveController != null) {
+        await effectiveController.setThemeMode(mode);
+      } else {
+        await ref.read(themePreferencesProvider.notifier).setThemeMode(mode);
+      }
+    }
+
+    Future<void> onApplyPreset(ThemePresetItem preset) async {
+      if (effectiveController != null) {
+        await effectiveController.applyPreset(preset);
+      } else {
+        await ref.read(themePreferencesProvider.notifier).applyPreset(preset);
+      }
+    }
+
+    Future<void> onSetCustomColors(Color primary, Color secondary) async {
+      if (effectiveController != null) {
+        await effectiveController.setCustomColors(
+          primary: primary,
+          secondary: secondary,
+        );
+      } else {
+        await ref.read(themePreferencesProvider.notifier).setCustomColors(
+              primary: primary,
+              secondary: secondary,
+            );
+      }
+    }
+
+    Future<void> onSaveCustomTheme(String name) async {
+      if (effectiveController != null) {
+        await effectiveController.saveCurrentAsCustomTheme(name);
+      } else {
+        await ref
+            .read(themePreferencesProvider.notifier)
+            .saveCurrentAsCustomTheme(name);
+      }
+    }
+
+    Future<void> onApplySavedTheme(SavedTheme saved) async {
+      if (effectiveController != null) {
+        await effectiveController.applySavedTheme(saved);
+      } else {
+        await ref
+            .read(themePreferencesProvider.notifier)
+            .applySavedTheme(saved);
+      }
+    }
+
+    Future<void> onDeleteSavedTheme(String id) async {
+      if (effectiveController != null) {
+        await effectiveController.deleteSavedTheme(id);
+      } else {
+        await ref
+            .read(themePreferencesProvider.notifier)
+            .deleteSavedTheme(id);
+      }
+    }
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -244,13 +344,13 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                     ],
                     selected: {prefs.themeMode},
                     onSelectionChanged: (selected) {
-                      notifier.setThemeMode(selected.first);
+                      onSetThemeMode(selected.first);
                     },
                   ),
                 ),
               const SizedBox(height: 14),
 
-              // Tabs: [1] Sjablonen & Opgeslagen Thema's, [2] Colorpicker & Zelf Maken
+              // Tabs
               TabBar(
                 controller: _tabController,
                 labelColor: prefs.primaryColor,
@@ -275,11 +375,21 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    // TAB 1: Sjablonen & Opgeslagen thema's
-                    _buildThemesTab(theme, prefs, notifier, availablePresets),
-
-                    // TAB 2: Interactieve Colorpicker
-                    _buildColorPickerTab(theme, prefs, notifier),
+                    _buildThemesTab(
+                      theme: theme,
+                      prefs: prefs,
+                      availablePresets: availablePresets,
+                      onApplyPreset: onApplyPreset,
+                      onApplySavedTheme: onApplySavedTheme,
+                      onDeleteSavedTheme: onDeleteSavedTheme,
+                      onSaveTheme: onSaveCustomTheme,
+                    ),
+                    _buildColorPickerTab(
+                      theme: theme,
+                      prefs: prefs,
+                      onSaveTheme: onSaveCustomTheme,
+                      onSetColors: onSetCustomColors,
+                    ),
                   ],
                 ),
               ),
@@ -294,8 +404,8 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                 children: [
                   TextButton.icon(
                     onPressed: () {
-                      final defaultPreset = ThemePresets.amberRust;
-                      notifier.applyPreset(defaultPreset);
+                      const defaultPreset = ThemePresets.amberRust;
+                      onApplyPreset(defaultPreset);
                       setState(() {
                         _currentPrimary = defaultPreset.primaryColor;
                         _currentSecondary = defaultPreset.secondaryColor;
@@ -317,17 +427,19 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
     );
   }
 
-  Widget _buildThemesTab(
-    ThemeData theme,
-    ThemePreferences prefs,
-    ThemePreferencesNotifier notifier,
-    List<ThemePresetItem> availablePresets,
-  ) {
+  Widget _buildThemesTab({
+    required ThemeData theme,
+    required ThemePreferences prefs,
+    required List<ThemePresetItem> availablePresets,
+    required Future<void> Function(ThemePresetItem preset) onApplyPreset,
+    required Future<void> Function(SavedTheme saved) onApplySavedTheme,
+    required Future<void> Function(String id) onDeleteSavedTheme,
+    required Future<void> Function(String name) onSaveTheme,
+  }) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Mijn Opgeslagen Custom Thema's
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -340,7 +452,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                 ),
               ),
               FilledButton.tonalIcon(
-                onPressed: () => _showSaveThemeDialog(context),
+                onPressed: () => _showSaveThemeDialog(context, prefs, onSaveTheme),
                 icon: const Icon(Icons.add, size: 16),
                 label: const Text('Thema Opslaan'),
                 style: FilledButton.styleFrom(
@@ -402,7 +514,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                   ),
                   child: ListTile(
                     onTap: () {
-                      notifier.applySavedTheme(saved);
+                      onApplySavedTheme(saved);
                       setState(() {
                         _currentPrimary = saved.primaryColor;
                         _currentSecondary = saved.secondaryColor;
@@ -457,7 +569,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                           icon: const Icon(Icons.delete_outline,
                               size: 18, color: Colors.redAccent),
                           onPressed: () {
-                            notifier.deleteSavedTheme(saved.id);
+                            onDeleteSavedTheme(saved.id);
                           },
                         ),
                       ],
@@ -469,7 +581,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
 
           const SizedBox(height: 20),
 
-          // 2. Standaard Sjablonen
+          // Standaard Sjablonen
           Text(
             'STANDAARD SJABLONEN',
             style: theme.textTheme.labelMedium?.copyWith(
@@ -487,7 +599,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
               final isRobHub = preset.id == 'rob_hub';
               return InkWell(
                 onTap: () {
-                  notifier.applyPreset(preset);
+                  onApplyPreset(preset);
                   setState(() {
                     _currentPrimary = preset.primaryColor;
                     _currentSecondary = preset.secondaryColor;
@@ -603,16 +715,16 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
     );
   }
 
-  Widget _buildColorPickerTab(
-    ThemeData theme,
-    ThemePreferences prefs,
-    ThemePreferencesNotifier notifier,
-  ) {
+  Widget _buildColorPickerTab({
+    required ThemeData theme,
+    required ThemePreferences prefs,
+    required Future<void> Function(String name) onSaveTheme,
+    required Future<void> Function(Color primary, Color secondary) onSetColors,
+  }) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Keuze Primair vs Secundair
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -625,7 +737,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                 ),
               ),
               FilledButton.icon(
-                onPressed: () => _showSaveThemeDialog(context),
+                onPressed: () => _showSaveThemeDialog(context, prefs, onSaveTheme),
                 icon: const Icon(Icons.bookmark_add, size: 16),
                 label: const Text('Opslaan als Thema'),
                 style: FilledButton.styleFrom(
@@ -687,7 +799,6 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
           ),
           const SizedBox(height: 16),
 
-          // De interactieve ColorPicker
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -709,10 +820,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                     _currentSecondary = newColor;
                   }
                 });
-                notifier.setCustomColors(
-                  primary: _currentPrimary,
-                  secondary: _currentSecondary,
-                );
+                onSetColors(_currentPrimary, _currentSecondary);
               },
               colorPickerWidth: 320,
               pickerAreaHeightPercent: 0.5,

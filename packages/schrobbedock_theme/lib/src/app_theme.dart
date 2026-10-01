@@ -38,19 +38,19 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: slate50,
       canvasColor: slate50,
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
         foregroundColor: slate900,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: const TextStyle(
+        titleTextStyle: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w700,
           color: slate900,
           letterSpacing: -0.3,
         ),
-        shape: const Border(
+        shape: Border(
           bottom: BorderSide(color: slate200, width: 1),
         ),
       ),

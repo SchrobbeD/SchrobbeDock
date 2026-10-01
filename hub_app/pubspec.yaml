@@ -40,6 +40,8 @@ dependencies:
   qr_flutter: ^4.1.0
   shared_preferences: ^2.5.5
   flutter_colorpicker: ^1.1.0
+  schrobbedock_theme:
+    path: ../packages/schrobbedock_theme
 
 dev_dependencies:
   flutter_test:
