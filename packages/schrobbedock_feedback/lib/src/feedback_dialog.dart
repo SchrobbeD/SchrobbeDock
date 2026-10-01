@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'environment_service.dart';
 
 class FeedbackDialog extends StatefulWidget {
@@ -11,6 +12,7 @@ class FeedbackDialog extends StatefulWidget {
   final String? initialTitle;
   final String? initialDescription;
   final StackTrace? stackTrace;
+  final bool showGitHubLink;
 
   const FeedbackDialog({
     super.key,
@@ -21,6 +23,7 @@ class FeedbackDialog extends StatefulWidget {
     this.initialTitle,
     this.initialDescription,
     this.stackTrace,
+    this.showGitHubLink = false,
   });
 
   @override
@@ -219,7 +222,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
-        if (issueUrl != null)
+        if (widget.showGitHubLink && issueUrl != null) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -240,14 +243,18 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {
-                    // Open URL kan via url_launcher of browser link
+                  onPressed: () async {
+                    final uri = Uri.tryParse(issueUrl);
+                    if (uri != null) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
                   },
                   child: const Text('Bekijken'),
                 ),
               ],
             ),
           ),
+        ],
         const SizedBox(height: 24),
         FilledButton(
           onPressed: () => Navigator.pop(context),

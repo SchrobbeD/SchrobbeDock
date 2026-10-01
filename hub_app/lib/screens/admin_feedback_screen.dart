@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers.dart';
 
 class AdminFeedbackScreen extends ConsumerStatefulWidget {
@@ -752,8 +753,11 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                 // GitHub Issue koppeling
                 if (githubIssueUrl != null)
                   InkWell(
-                    onTap: () {
-                      // Open GitHub Issue URL
+                    onTap: () async {
+                      final uri = Uri.tryParse(githubIssueUrl);
+                      if (uri != null) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
                     },
                     borderRadius: BorderRadius.circular(6),
                     child: Container(

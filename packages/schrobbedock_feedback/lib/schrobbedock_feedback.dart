@@ -20,6 +20,7 @@ class SchrobbeDockFeedback {
     String? prefilledDescription,
     StackTrace? stackTrace,
     bool autoCaptureScreenshot = true,
+    bool showGitHubLink = false,
   }) async {
     Uint8List? screenshot;
     if (autoCaptureScreenshot) {
@@ -39,6 +40,7 @@ class SchrobbeDockFeedback {
         initialTitle: initialTitle,
         initialDescription: prefilledDescription,
         stackTrace: stackTrace,
+        showGitHubLink: showGitHubLink,
       ),
     );
   }

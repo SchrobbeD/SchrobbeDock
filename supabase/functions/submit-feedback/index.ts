@@ -120,7 +120,13 @@ serve(async (req) => {
         let attachmentsSection = "";
         if (attachment_urls && attachment_urls.length > 0) {
           attachmentsSection = `\n### Bijlagen & Screenshots\n` +
-            attachment_urls.map((url: string, i: number) => `![Bijlage ${i + 1}](${url})`).join("\n\n");
+            attachment_urls.map((url: string, i: number) => {
+              const isLocalhost = url.includes("127.0.0.1") || url.includes("localhost");
+              if (isLocalhost) {
+                return `> ⚠️ **Lokale Ontwikkeling**: Schermafbeelding opgeslagen op localhost. De GitHub Camo proxy kan geen lokale adressen bereiken.\n> 👉 *Bekijk de schermafbeelding lokaal in het SchrobbeDock Admin Dashboard op \`/admin/feedback\`.*`;
+              }
+              return `![Bijlage ${i + 1}](${url})\n\n[Directe link naar Bijlage ${i + 1}](${url})`;
+            }).join("\n\n");
         }
 
         let stackSection = "";
