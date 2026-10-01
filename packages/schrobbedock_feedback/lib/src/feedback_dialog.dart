@@ -246,7 +246,11 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                   onPressed: () async {
                     final uri = Uri.tryParse(issueUrl);
                     if (uri != null) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                        webOnlyWindowName: '_blank',
+                      );
                     }
                   },
                   child: const Text('Bekijken'),

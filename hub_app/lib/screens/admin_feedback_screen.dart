@@ -756,7 +756,11 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                     onTap: () async {
                       final uri = Uri.tryParse(githubIssueUrl);
                       if (uri != null) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                          webOnlyWindowName: '_blank',
+                        );
                       }
                     },
                     borderRadius: BorderRadius.circular(6),
