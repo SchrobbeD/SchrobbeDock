@@ -60,10 +60,22 @@
   - **GitHub Synchronisatie**:
     - Supabase Edge Functions met GitHub REST API integratie (`submit-feedback` en `sync-feedback-status`).
     - Automatische aanmaak van Markdown issues met inline screenshots, metadata en badges via de server-side GitHub PAT (`GITHUB_FEEDBACK_TOKEN`).
-    - Tweeweg synchronisatie: wijziging van status in de Hub (`resolved`/`open`) past het GitHub Issue direct aan en plaatst een auditcomment.
+    - **Volledige Tweeweg Synchronisatie (Hub ↔ GitHub)**:
+      - Wijziging van status in de Hub (`in_progress`, `resolved`, `open`) past het GitHub Issue direct aan (open/close, label `in-progress` toevoegen/verwijderen) en plaatst een auditcomment.
+      - Supabase Edge Function `github-webhook` met HMAC SHA256 webhook payload validatie (`GITHUB_WEBHOOK_SECRET`).
+      - Sluiten of heropenen van issues op GitHub (manueel of via git commit messages zoals `closes #12`) synchroniseert direct real-time terug naar `public.feedback_reports` in Supabase en de Hub UI.
   - **Hub Beheer**:
     - Centraal scherm `/admin/feedback` voor platformbeheerders met filterbalk, diagnostische accordeon (omgeving & crash stacktrace), screenshot-vergroting en tweeweg statusbeheer.
     - Snelkoppelingen in Dashboard AppBar, User Action Menu en Admin Invites beheer.
+  - **Toekomstige Uitbreiding: Tweeweg Melding- & Issue-Verwijdering (Hard Delete & AVG/GDPR Opschoning)**:
+    - **Nut & Noodzaak**:
+      - *Normaal gebruik*: Issues worden normaal gesloten (`resolved`/`closed`) om historische context en audit trails te behouden.
+      - *Wanneer essentieel*:
+        1. **AVG / GDPR & Datalekken**: Wanneer een gebruiker per ongeluk wachtwoorden, API-sleutels of gevoelige persoonsgegevens meestuurt in een screenshot of beschrijving. Enkel sluiten laat de gevoelige data in GitHub history staan; een **hard delete** is juridisch en qua beveiliging verplicht.
+        2. **Spam & Testdata**: Snelle opruiming van testrapporten of corrupte/dubbele inzendingen.
+    - **Architectuur (Tweeweg)**:
+      - **Hub ➔ GitHub**: Admin klikt op *"Melding Verwijderen"* in `/admin/feedback` ➔ screenshot in Supabase storage bucket `feedback_attachments` wordt gewist ➔ Supabase Edge Function roept `DELETE /repos/{owner}/{repo}/issues/{issue_number}` aan op GitHub (vereist GitHub PAT met admin rechten op de repo) ➔ record in `feedback_reports` wordt verwijderd (hard delete of geanonimiseerde tombstone).
+      - **GitHub ➔ Hub**: Beheerder verwijdert issue via GitHub UI ➔ GitHub stuurt `issues.deleted` webhook event ➔ `github-webhook` Edge Function verwijdert automatisch het gekoppelde record in `public.feedback_reports` en de opgeslagen screenshot in storage. Geen zwevende "zombie" records in het Hub dashboard.
 
 ### 2. Gedeelde Design System & Theme Package voor Spoke Apps (`packages/schrobbedock_theme`) [AFGEROND - v1.0.0]
 - **Doel**: Spoke apps kunnen net als de feedback module via 1 Git dependency exact hetzelfde thema- en stylingsysteem importeren.
