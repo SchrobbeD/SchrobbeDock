@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_license.dart';
 import '../providers.dart';
 import '../theme/schrobbedock_theme.dart';
-import '../widgets/theme_customizer_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});

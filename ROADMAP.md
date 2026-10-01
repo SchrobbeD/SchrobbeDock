@@ -62,12 +62,16 @@
   - **Hub Beheer**:
     - Overzichtsscherm in de Hub voor beheerders met statusupdates (`open`, `in_progress`, `resolved`), filters en directe links naar het GitHub Issue.
 
-### 2. Gedeelde Design System & Theme Package voor Spoke Apps (`packages/schrobbedock_theme`)
+### 2. Gedeelde Design System & Theme Package voor Spoke Apps (`packages/schrobbedock_theme`) [AFGEROND - v1.0.0]
 - **Doel**: Spoke apps kunnen net als de feedback module via 1 Git dependency exact hetzelfde thema- en stylingsysteem importeren.
-- **Werking**:
-  - Gedeelde Flutter package die de centrale `SchrobbeDockTheme`, kleurenpaletten, templates (inclusief RobHub) en typography bevat.
-  - Automatische koppeling met de centrale Supabase sessie/JWT (`raw_user_meta_data.preferences`): zodra een gebruiker inlogt in een Spoke app, krijgt de app direct de door de gebruiker ingestelde kleuren, donkere/lichte modus en branding.
-  - Optioneel inschakelen van de `ThemeCustomizerDialog` binnen Spoke apps.
+- **Opgeleverde Architectuur (Optie B - Framework-agnostisch + Riverpod bridge)**:
+  - **Standalone Package**: In `packages/schrobbedock_theme` met eigen `pubspec.yaml` (v1.0.0).
+  - **Core Controller**: Gebouwd op native Flutter `ChangeNotifier` (`SchrobbeDockThemeController`) en `SchrobbeDockThemeScope`, 0 verplichte externe frameworks voor Spoke apps.
+  - **Riverpod Bridge / Adapter**: `schrobbedock_theme_riverpod.dart` met `themePreferencesProvider`, `canAccessRobHubProvider` en `sharedPreferencesProvider`.
+  - **Thema Dialog**: Volledige interactieve `ThemeCustomizerDialog` en `SchrobbeDockTheme.showCustomizer(context)`.
+  - **RobHub & Autorisatiesync**: Presets, custom kleuren, pitch-black RobHub isolatie, auto-fallback naar Warm Amber bij verlies van rechten.
+  - **Supabase Sync**: Synchronisatie met `raw_user_meta_data.preferences` en RPC `update_user_preferences`.
+  - **Hub Integratie**: `hub_app` ontkoppeld en direct gekoppeld via `path: ../packages/schrobbedock_theme`. Alle 12 package tests en 10 Hub tests geslaagd met 0 analyzer waarschuwingen.
 
 ### 3. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
 - **Doel**: 
@@ -88,11 +92,18 @@
     - **Admin Hub (`/admin/invites` tab Gebruikers)**: Rode actieknop *"Gebruiker Verwijderen"* met bevestigingsdialoog ("Typ de naam over om te bevestigen").
     - **Self-Service Profiel (`/profile`)**: Overzicht van opgeslagen gegevens (naam, e-mail, telefoon, adres, gekoppelde login provider zoals Google), plus een gevarenzone met *"Account Definitief Verwijderen"*.
 
-### 4. Documentatie: Repository README & Beheerdershandleiding
-- **README.md (Developer Onboarding)**:
+### 4. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
+- **README.md (Repository Overview & Setup)**:
   - Overzicht van de Hub & Spoke ecosysteem architectuur.
   - Lokale installatie- en opstartinstructies (Supabase CLI, Flutter, migraties draaien, seed data).
   - CI/CD overzicht (Supabase DB pushes & Web hosting deploy).
+- **Spoke App Ontwikkelingsgids (`docs/SPOKE_INTEGRATION_GUIDE.md`)**:
+  - Complete gids: *Wat moet een Spoke app minimaal implementeren en hoe start je een nieuw Spoke project?*
+  - **Single Sign-On & Sessie**: Supabase Auth integratie, token handling en sessie-uitwisseling met de Hub.
+  - **Licentie- en toegangsvalidatie**: Hoe een Spoke controleert of de ingelogde gebruiker een actieve licentie heeft in `public.user_licenses` en RLS enforcement.
+  - **Package Versiebeheer & Git Release Tags**: Hoe Spoke apps pinnen op specifieke package releases (bijv. `ref: theme-v1.0.0`) om breaking changes en ongewenste updates te voorkomen.
+  - **Thema-integratie**: Implementatie van `packages/schrobbedock_theme` (auto-sync met voorkeuren en integratie van `ThemeCustomizerDialog`).
+  - **Feedback-integratie**: Implementatie van `packages/schrobbedock_feedback` (1-regel bug- en suggestierapportage naar de bijbehorende GitHub repo).
 - **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`)**:
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).

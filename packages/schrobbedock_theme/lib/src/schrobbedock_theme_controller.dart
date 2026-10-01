@@ -1,78 +1,93 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../providers.dart';
 import 'theme_preferences.dart';
 import 'theme_presets.dart';
 
-const String _localPrefsKey = 'schrobbedock_theme_preferences';
+const String kSchrobbeDockLocalPrefsKey = 'schrobbedock_theme_preferences';
 
-/// Provider voor SharedPreferences instantie, geïnjecteerd via ProviderScope in main()
-final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
-
-class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
+/// Framework-agnostische Theme Controller gebaseerd op Flutter's native ChangeNotifier.
+/// Werkt standalone met pure Flutter (bijv. met ListenableBuilder of SchrobbeDockThemeScope),
+/// maar kan ook naadloos gekoppeld worden met Riverpod, Bloc of Provider.
+class SchrobbeDockThemeController extends ChangeNotifier {
+  ThemePreferences _preferences = ThemePreferences.defaultPreferences;
+  bool _canAccessRobHub = false;
+  SharedPreferences? _prefs;
+  SupabaseClient? _supabase;
   StreamSubscription<AuthState>? _authSubscription;
 
-  SupabaseClient? get _supabase {
-    try {
-      return ref.read(supabaseClientProvider);
-    } catch (_) {
+  ThemePreferences get preferences => _preferences;
+  bool get canAccessRobHub => _canAccessRobHub;
+  SupabaseClient? get supabaseClient => _supabase;
+
+  SchrobbeDockThemeController({
+    SharedPreferences? prefs,
+    SupabaseClient? supabaseClient,
+    ThemePreferences initialPreferences = ThemePreferences.defaultPreferences,
+  })  : _prefs = prefs,
+        _supabase = supabaseClient,
+        _preferences = initialPreferences {
+    _init();
+  }
+
+  void _init() {
+    if (_prefs != null) {
+      _loadFromLocalPrefs();
+    } else {
+      SharedPreferences.getInstance().then((sp) {
+        _prefs = sp;
+        _loadFromLocalPrefs();
+        if (_supabase != null) {
+          _setupSupabaseSync();
+        }
+      });
+    }
+
+    if (_supabase != null) {
+      _setupSupabaseSync();
+    }
+  }
+
+  void _loadFromLocalPrefs() {
+    final sp = _prefs;
+    if (sp == null) return;
+
+    final localJson = sp.getString(kSchrobbeDockLocalPrefsKey);
+    if (localJson != null) {
       try {
-        return Supabase.instance.client;
-      } catch (_) {
-        return null;
-      }
+        final decoded = jsonDecode(localJson) as Map<String, dynamic>;
+        _preferences = ThemePreferences.fromJson(decoded);
+        notifyListeners();
+      } catch (_) {}
     }
   }
 
-  @override
-  ThemePreferences build() {
-    ref.onDispose(() {
-      _authSubscription?.cancel();
-    });
-
-    final prefs = ref.watch(sharedPreferencesProvider);
-    ThemePreferences initial = ThemePreferences.defaultPreferences;
-
-    // 1. Direct synchroon inladen vanuit SharedPreferences (0 ms FOUC-vrije start op F5)
-    if (prefs != null) {
-      final localJson = prefs.getString(_localPrefsKey);
-      if (localJson != null) {
-        try {
-          final decoded = jsonDecode(localJson) as Map<String, dynamic>;
-          initial = ThemePreferences.fromJson(decoded);
-        } catch (_) {}
-      }
-    }
-
-    // 2. Setup auth luisteraar en achtergrond synchronisatie met Supabase
-    Future.microtask(() => _setupSync(hasLocalCache: initial != ThemePreferences.defaultPreferences));
-
-    return initial;
+  /// Koppel een actieve Supabase client voor realtime sync en autorisatiechecks
+  void attachSupabase(SupabaseClient client) {
+    _supabase = client;
+    _setupSupabaseSync();
   }
 
-  void _setupSync({required bool hasLocalCache}) {
+  void _setupSupabaseSync() {
     final client = _supabase;
     if (client == null) return;
 
-    // Luister naar auth veranderingen (bijv. inloggen van een andere gebruiker of switch)
     _authSubscription?.cancel();
     _authSubscription = client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedIn ||
           data.event == AuthChangeEvent.userUpdated) {
         syncFromProfile(forceApply: true);
       } else if (data.event == AuthChangeEvent.signedOut) {
-        state = ThemePreferences.defaultPreferences;
-        ref.invalidate(canAccessRobHubProvider);
+        _preferences = ThemePreferences.defaultPreferences;
+        _canAccessRobHub = false;
+        notifyListeners();
       }
     });
 
-    // Haal altijd de meest actuele profiel-voorkeuren op van de server
     if (client.auth.currentUser != null) {
-      syncFromProfile(forceApply: !hasLocalCache);
+      syncFromProfile();
     }
   }
 
@@ -88,17 +103,13 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
           .eq('id', user.id)
           .maybeSingle();
 
-      ref.invalidate(canAccessRobHubProvider);
-
       if (response != null) {
-        final canAccessRobHub = response['can_access_robhub'] as bool? ?? false;
+        _canAccessRobHub = response['can_access_robhub'] as bool? ?? false;
         if (response['preferences'] != null) {
           var dbPrefs = ThemePreferences.fromJson(
               response['preferences'] as Map<String, dynamic>);
 
-          // Als RobHub toegang is ingetrokken maar thema staat nog op RobHub:
-          // val automatisch terug naar Warm Amber
-          if (!canAccessRobHub && dbPrefs.preset == 'rob_hub') {
+          if (!_canAccessRobHub && dbPrefs.preset == 'rob_hub') {
             dbPrefs = dbPrefs.copyWith(
               preset: 'amber_rust',
               primaryColor: const Color(0xFFEA580C),
@@ -106,27 +117,30 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
             );
           }
 
-          if (forceApply || state != dbPrefs) {
-            state = dbPrefs;
+          if (forceApply || _preferences != dbPrefs) {
+            _preferences = dbPrefs;
             await _cacheLocally(dbPrefs);
+            notifyListeners();
+            return;
           }
         }
+        notifyListeners();
       }
     } catch (_) {}
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    if (state.preset == 'rob_hub') return;
-    final updated = state.copyWith(themeMode: mode);
+    if (_preferences.preset == 'rob_hub') return;
+    final updated = _preferences.copyWith(themeMode: mode);
     await _updatePreferences(updated);
   }
 
   Future<void> applyPreset(ThemePresetItem preset) async {
-    final updated = state.copyWith(
+    final updated = _preferences.copyWith(
       primaryColor: preset.primaryColor,
       secondaryColor: preset.secondaryColor,
       preset: preset.id,
-      themeMode: preset.id == 'rob_hub' ? ThemeMode.dark : state.themeMode,
+      themeMode: preset.id == 'rob_hub' ? ThemeMode.dark : _preferences.themeMode,
     );
     await _updatePreferences(updated);
   }
@@ -135,7 +149,7 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
     required Color primary,
     required Color secondary,
   }) async {
-    final updated = state.copyWith(
+    final updated = _preferences.copyWith(
       primaryColor: primary,
       secondaryColor: secondary,
       preset: 'custom',
@@ -148,13 +162,14 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
     final newSaved = SavedTheme(
       id: newId,
       name: name.trim().isEmpty ? 'Aangepast Thema' : name.trim(),
-      primaryColor: state.primaryColor,
-      secondaryColor: state.secondaryColor,
-      themeMode: state.themeMode,
+      primaryColor: _preferences.primaryColor,
+      secondaryColor: _preferences.secondaryColor,
+      themeMode: _preferences.themeMode,
     );
 
-    final updatedList = List<SavedTheme>.from(state.savedThemes)..add(newSaved);
-    final updated = state.copyWith(
+    final updatedList = List<SavedTheme>.from(_preferences.savedThemes)
+      ..add(newSaved);
+    final updated = _preferences.copyWith(
       preset: 'saved_$newId',
       savedThemes: updatedList,
     );
@@ -162,7 +177,7 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
   }
 
   Future<void> applySavedTheme(SavedTheme saved) async {
-    final updated = state.copyWith(
+    final updated = _preferences.copyWith(
       primaryColor: saved.primaryColor,
       secondaryColor: saved.secondaryColor,
       themeMode: saved.themeMode,
@@ -172,12 +187,13 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
   }
 
   Future<void> deleteSavedTheme(String id) async {
-    final updatedList = state.savedThemes.where((t) => t.id != id).toList();
-    String newPreset = state.preset;
-    if (state.preset == 'saved_$id') {
+    final updatedList =
+        _preferences.savedThemes.where((t) => t.id != id).toList();
+    String newPreset = _preferences.preset;
+    if (_preferences.preset == 'saved_$id') {
       newPreset = 'custom';
     }
-    final updated = state.copyWith(
+    final updated = _preferences.copyWith(
       preset: newPreset,
       savedThemes: updatedList,
     );
@@ -185,14 +201,14 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
   }
 
   Future<void> _updatePreferences(ThemePreferences newPrefs) async {
-    state = newPrefs;
+    _preferences = newPrefs;
+    notifyListeners();
     await _cacheLocally(newPrefs);
 
     final client = _supabase;
     final user = client?.auth.currentUser;
     if (user != null && client != null) {
       try {
-        // 1. Update in profiles tabel (centrale bron in Supabase)
         await client.rpc(
           'update_user_preferences',
           params: {'new_prefs': newPrefs.toJson()},
@@ -206,7 +222,6 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
         } catch (_) {}
       }
 
-      // 2. Synchroniseer user metadata in auth sessie zodat het JWT direct up-to-date is
       try {
         await client.auth.updateUser(
           UserAttributes(data: {'preferences': newPrefs.toJson()}),
@@ -217,7 +232,7 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
 
   Future<void> _cacheLocally(ThemePreferences prefs) async {
     try {
-      final sp = ref.read(sharedPreferencesProvider) ?? await SharedPreferences.getInstance();
+      final sp = _prefs ?? await SharedPreferences.getInstance();
       final jsonStr = jsonEncode(prefs.toJson());
       final modeStr = prefs.themeMode == ThemeMode.light
           ? 'light'
@@ -225,34 +240,16 @@ class ThemePreferencesNotifier extends Notifier<ThemePreferences> {
       final primaryHex = colorToHex(prefs.primaryColor);
       final secondaryHex = colorToHex(prefs.secondaryColor);
 
-      await sp.setString(_localPrefsKey, jsonStr);
+      await sp.setString(kSchrobbeDockLocalPrefsKey, jsonStr);
       await sp.setString('theme_mode', modeStr);
       await sp.setString('primary_color', primaryHex);
       await sp.setString('secondary_color', secondaryHex);
     } catch (_) {}
   }
-}
 
-final themePreferencesProvider =
-    NotifierProvider<ThemePreferencesNotifier, ThemePreferences>(
-  ThemePreferencesNotifier.new,
-);
-
-/// Provider om te controleren of de huidige ingelogde gebruiker geautoriseerd is voor het exclusieve RobHub thema
-final canAccessRobHubProvider = FutureProvider<bool>((ref) async {
-  final user = ref.watch(currentUserProvider);
-  if (user == null) return false;
-
-  final client = ref.watch(supabaseClientProvider);
-  try {
-    final response = await client
-        .from('profiles')
-        .select('can_access_robhub')
-        .eq('id', user.id)
-        .maybeSingle();
-
-    return response?['can_access_robhub'] as bool? ?? false;
-  } catch (_) {
-    return false;
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
-});
+}
