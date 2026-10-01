@@ -26,21 +26,17 @@ serve(async (req) => {
       });
     }
 
-    // User client met JWT van de gebruiker
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      console.error("submit-feedback auth error:", userError, "URL:", supabaseUrl);
+      return new Response(JSON.stringify({ error: "Unauthorized", details: userError?.message }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Admin client voor DB updates & privileges
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
     const {
@@ -105,7 +101,7 @@ serve(async (req) => {
     let githubIssueNumber: number | null = null;
 
     const owner = appData.github_repo_owner || "SchrobbeD";
-    const repo = appData.github_repo_name;
+    const repo = appData.github_repo_name || "SchrobbeDock";
 
     if (githubToken && repo) {
       try {

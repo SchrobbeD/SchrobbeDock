@@ -26,19 +26,17 @@ serve(async (req) => {
       });
     }
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      console.error("sync-feedback-status auth error:", userError, "URL:", supabaseUrl);
+      return new Response(JSON.stringify({ error: "Unauthorized", details: userError?.message }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Controleer of de gebruiker super_admin is op hub_admin
     const { data: adminLicense } = await adminClient
@@ -99,7 +97,7 @@ serve(async (req) => {
     // Synchroniseer met GitHub als er een gekoppeld issue is
     const appInfo = (report as any).apps;
     const owner = appInfo?.github_repo_owner || "SchrobbeD";
-    const repo = appInfo?.github_repo_name;
+    const repo = appInfo?.github_repo_name || "SchrobbeDock";
     const issueNumber = report.github_issue_number;
 
     let githubSynced = false;

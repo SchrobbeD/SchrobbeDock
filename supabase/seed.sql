@@ -5,15 +5,17 @@
 -- --------------------------------------------------------------------
 -- 1. CATALOGUS: TEST APPLICATIES (HUB & SPOKES)
 -- --------------------------------------------------------------------
-INSERT INTO public.apps (id, slug, name, is_active)
+INSERT INTO public.apps (id, slug, name, is_active, github_repo_owner, github_repo_name)
 VALUES 
-    ('22222222-2222-2222-2222-222222222222', 'hub_admin', 'Centraal Hub Beheer', true),
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dock_planner', 'SchrobbeDock Planner', true),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'dock_warehouse', 'SchrobbeDock Magazijn & Logistiek', true)
+    ('22222222-2222-2222-2222-222222222222', 'hub_admin', 'Centraal Hub Beheer', true, 'SchrobbeD', 'SchrobbeDock'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dock_planner', 'SchrobbeDock Planner', true, 'SchrobbeD', 'SchrobbeDock'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'dock_warehouse', 'SchrobbeDock Magazijn & Logistiek', true, 'SchrobbeD', 'SchrobbeDock')
 ON CONFLICT (id) DO UPDATE SET
     slug = EXCLUDED.slug,
     name = EXCLUDED.name,
-    is_active = EXCLUDED.is_active;
+    is_active = EXCLUDED.is_active,
+    github_repo_owner = EXCLUDED.github_repo_owner,
+    github_repo_name = EXCLUDED.github_repo_name;
 
 -- --------------------------------------------------------------------
 -- 2. SEED UITNODIGINGEN VOOR TESTGEBRUIKERS
