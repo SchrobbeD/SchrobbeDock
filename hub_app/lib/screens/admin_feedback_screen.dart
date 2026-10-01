@@ -60,7 +60,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
             created_at,
             updated_at,
             apps(id, name, slug, github_repo_owner, github_repo_name),
-            profiles:user_id(id, display_name)
+            profiles:user_id(id, email, first_name, last_name)
           ''')
           .order('created_at', ascending: false);
 
@@ -253,6 +253,19 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
       default:
         return Colors.grey;
     }
+  }
+
+  String _formatUserName(Map<String, dynamic>? profile, dynamic userId) {
+    if (profile != null) {
+      final firstName = (profile['first_name'] as String?)?.trim() ?? '';
+      final lastName = (profile['last_name'] as String?)?.trim() ?? '';
+      final fullName = '$firstName $lastName'.trim();
+      if (fullName.isNotEmpty) return fullName;
+      final email = profile['email'] as String?;
+      if (email != null && email.isNotEmpty) return email;
+    }
+    final idStr = userId?.toString() ?? '';
+    return idStr.length >= 8 ? 'Gebruiker #${idStr.substring(0, 8)}' : 'Onbekende Gebruiker';
   }
 
   void _showImageModal(String imageUrl) {
@@ -718,7 +731,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                 Icon(Icons.person_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
                 const SizedBox(width: 6),
                 Text(
-                  profileData?['display_name'] ?? 'Gebruiker #${report['user_id']?.toString().substring(0, 8)}',
+                  _formatUserName(profileData, report['user_id']),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
