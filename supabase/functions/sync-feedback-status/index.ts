@@ -118,6 +118,12 @@ serve(async (req) => {
             body: JSON.stringify({ state: "closed", state_reason: "completed" }),
           });
 
+          // Verwijder in-progress label indien aanwezig
+          await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels/in-progress`, {
+            method: "DELETE",
+            headers: ghHeaders,
+          }).catch(() => {});
+
           await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
             method: "POST",
             headers: ghHeaders,
@@ -133,6 +139,12 @@ serve(async (req) => {
             body: JSON.stringify({ state: "open" }),
           });
 
+          // Verwijder in-progress label indien aanwezig
+          await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels/in-progress`, {
+            method: "DELETE",
+            headers: ghHeaders,
+          }).catch(() => {});
+
           await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
             method: "POST",
             headers: ghHeaders,
@@ -142,6 +154,20 @@ serve(async (req) => {
           });
           githubSynced = true;
         } else if (new_status === "in_progress") {
+          // Zorg dat het issue open is
+          await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`, {
+            method: "PATCH",
+            headers: ghHeaders,
+            body: JSON.stringify({ state: "open" }),
+          });
+
+          // Voeg in-progress label toe
+          await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels`, {
+            method: "POST",
+            headers: ghHeaders,
+            body: JSON.stringify({ labels: ["in-progress"] }),
+          });
+
           await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
             method: "POST",
             headers: ghHeaders,
