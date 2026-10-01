@@ -600,6 +600,11 @@ Uitnodigingscode: $code''';
         ),
         actions: [
           IconButton(
+            tooltip: 'Feedback & Meldingen',
+            icon: const Icon(Icons.rate_review_outlined),
+            onPressed: () => context.go('/admin/feedback'),
+          ),
+          IconButton(
             tooltip: 'Vernieuwen',
             icon: const Icon(Icons.refresh),
             onPressed: () {

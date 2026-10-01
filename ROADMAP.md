@@ -35,7 +35,7 @@
 
 ## Eerstvolgende Punten
 
-### 1. Nieuwe Feature: Centraal Probleem- & Feedbackmeldsysteem (GitHub Integration & Shared Package)
+### 1. Centraal Probleem- & Feedbackmeldsysteem (`packages/schrobbedock_feedback`) [AFGEROND - v1.0.0]
 - **Doel**: Gebruikers moeten vanuit **elke Spoke app** (en de centrale Hub) laagdrempelig een probleem, bug of suggestie kunnen melden. Meldingen worden automatisch doorgestuurd als GitHub Issue naar de specifieke repository van die app.
 - **Architectuur & Modulaire Spoke Integratie (Hub & Spoke)**:
   - **Shared Flutter Package (`packages/schrobbedock_feedback`)**:
@@ -58,9 +58,12 @@
     - Centrale tabel `public.feedback_reports` (RLS: gebruikers mogen enkel eigen rapporten inserten; Platform Admins hebben volledige lees/update-toegang).
     - Supabase Storage bucket `feedback_attachments` voor screenshots.
   - **GitHub Synchronisatie**:
-    - Edge Function of Database Webhook die bij een nieuw report via de GitHub REST API direct een issue aanmaakt in de gekoppelde repo (`SchrobbeD/<spoke-repo>`), inclusief inline embedded screenshot en omgevingstags.
+    - Supabase Edge Functions met GitHub REST API integratie (`submit-feedback` en `sync-feedback-status`).
+    - Automatische aanmaak van Markdown issues met inline screenshots, metadata en badges via de server-side GitHub PAT (`GITHUB_FEEDBACK_TOKEN`).
+    - Tweeweg synchronisatie: wijziging van status in de Hub (`resolved`/`open`) past het GitHub Issue direct aan en plaatst een auditcomment.
   - **Hub Beheer**:
-    - Overzichtsscherm in de Hub voor beheerders met statusupdates (`open`, `in_progress`, `resolved`), filters en directe links naar het GitHub Issue.
+    - Centraal scherm `/admin/feedback` voor platformbeheerders met filterbalk, diagnostische accordeon (omgeving & crash stacktrace), screenshot-vergroting en tweeweg statusbeheer.
+    - Snelkoppelingen in Dashboard AppBar, User Action Menu en Admin Invites beheer.
 
 ### 2. Gedeelde Design System & Theme Package voor Spoke Apps (`packages/schrobbedock_theme`) [AFGEROND - v1.0.0]
 - **Doel**: Spoke apps kunnen net als de feedback module via 1 Git dependency exact hetzelfde thema- en stylingsysteem importeren.

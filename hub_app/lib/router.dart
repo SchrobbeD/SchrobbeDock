@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'providers.dart';
+import 'screens/admin_feedback_screen.dart';
 import 'screens/admin_invites_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
@@ -148,6 +149,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/invites',
         name: 'admin_invites',
         builder: (context, state) => const AdminInvitesScreen(),
+      ),
+      GoRoute(
+        path: '/admin/feedback',
+        name: 'admin_feedback',
+        builder: (context, state) => const AdminFeedbackScreen(),
       ),
     ],
   );

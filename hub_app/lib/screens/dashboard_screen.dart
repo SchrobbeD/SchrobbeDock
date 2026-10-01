@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_license.dart';
 import '../providers.dart';
 import '../theme/schrobbedock_theme.dart';
+import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -349,6 +350,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ThemeCustomizerDialog.show(context);
                   },
                 ),
+                ListTile(
+                  leading: const Icon(Icons.feedback_outlined),
+                  title: const Text('Probleem Melden / Feedback'),
+                  subtitle: const Text('Meld een bug, verbetering of vraag'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    SchrobbeDockFeedback.show(context, appSlug: 'hub_admin');
+                  },
+                ),
                 if (!isSuperAdmin)
                   ListTile(
                     leading: const Icon(Icons.vpn_key_outlined),
@@ -358,15 +368,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       _showClaimCodeDialog();
                     },
                   ),
-                if (isSuperAdmin)
+                if (isSuperAdmin) ...[
                   ListTile(
                     leading: const Icon(Icons.admin_panel_settings_outlined),
-                    title: const Text('Admin Beheer'),
+                    title: const Text('Uitnodigingen & Gebruikers'),
                     onTap: () {
                       Navigator.pop(context);
                       context.go('/admin/invites');
                     },
                   ),
+                  ListTile(
+                    leading: const Icon(Icons.rate_review_outlined),
+                    title: const Text('Feedback & Bug Meldingen'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/admin/feedback');
+                    },
+                  ),
+                ],
                 const Divider(),
                 ListTile(
                   leading: const Icon(Icons.logout, color: Colors.redAccent),
@@ -460,6 +479,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
         actions: [
+          // Feedback knop
+          IconButton(
+            tooltip: 'Probleem Melden / Feedback',
+            icon: const Icon(Icons.feedback_outlined),
+            onPressed: () => SchrobbeDockFeedback.show(context, appSlug: 'hub_admin'),
+          ),
+
           // Snelkoppeling naar Thema Modal op desktop
           if (!isMobile)
             IconButton(
@@ -475,7 +501,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onPressed: _showClaimCodeDialog,
             ),
 
-          if (isSuperAdmin && !isMobile)
+          if (isSuperAdmin && !isMobile) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: OutlinedButton.icon(
+                onPressed: () => context.go('/admin/feedback'),
+                icon: const Icon(Icons.rate_review_outlined, size: 18),
+                label: const Text('Feedback Beheer'),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: FilledButton.tonalIcon(
@@ -484,6 +518,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 label: const Text('Admin Beheer'),
               ),
             ),
+          ],
 
           // User Avatar met Dropdown Menu
           Padding(
@@ -511,6 +546,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               onSelected: (value) async {
                 switch (value) {
+                  case 'feedback':
+                    SchrobbeDockFeedback.show(context, appSlug: 'hub_admin');
+                    break;
                   case 'theme':
                     ThemeCustomizerDialog.show(context);
                     break;
@@ -519,6 +557,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     break;
                   case 'admin':
                     context.go('/admin/invites');
+                    break;
+                  case 'admin_feedback':
+                    context.go('/admin/feedback');
                     break;
                   case 'logout':
                     final supabase = ref.read(supabaseClientProvider);
@@ -551,6 +592,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem<String>(
+                  value: 'feedback',
+                  child: Row(
+                    children: [
+                      Icon(Icons.feedback_outlined, size: 20),
+                      SizedBox(width: 12),
+                      Text('Probleem Melden / Feedback'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
                   value: 'theme',
                   child: Row(
                     children: [
@@ -571,17 +622,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ],
                     ),
                   ),
-                if (isSuperAdmin)
+                if (isSuperAdmin) ...[
                   const PopupMenuItem<String>(
                     value: 'admin',
                     child: Row(
                       children: [
                         Icon(Icons.admin_panel_settings_outlined, size: 20),
                         SizedBox(width: 12),
-                        Text('Admin Beheer'),
+                        Text('Uitnodigingen & Gebruikers'),
                       ],
                     ),
                   ),
+                  const PopupMenuItem<String>(
+                    value: 'admin_feedback',
+                    child: Row(
+                      children: [
+                        Icon(Icons.rate_review_outlined, size: 20),
+                        SizedBox(width: 12),
+                        Text('Feedback & Meldingen'),
+                      ],
+                    ),
+                  ),
+                ],
                 const PopupMenuDivider(),
                 const PopupMenuItem<String>(
                   value: 'logout',
