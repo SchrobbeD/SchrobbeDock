@@ -76,6 +76,14 @@
     - **Architectuur (Tweeweg)**:
       - **Hub ➔ GitHub**: Admin klikt op *"Melding Verwijderen"* in `/admin/feedback` ➔ screenshot in Supabase storage bucket `feedback_attachments` wordt gewist ➔ Supabase Edge Function roept `DELETE /repos/{owner}/{repo}/issues/{issue_number}` aan op GitHub (vereist GitHub PAT met admin rechten op de repo) ➔ record in `feedback_reports` wordt verwijderd (hard delete of geanonimiseerde tombstone).
       - **GitHub ➔ Hub**: Beheerder verwijdert issue via GitHub UI ➔ GitHub stuurt `issues.deleted` webhook event ➔ `github-webhook` Edge Function verwijdert automatisch het gekoppelde record in `public.feedback_reports` en de opgeslagen screenshot in storage. Geen zwevende "zombie" records in het Hub dashboard.
+  - **Toekomstige Uitbreiding: Meerdere Foto's & Handmatige Bijlagen Toevoegen**:
+    - **Huidige situatie**: De dialoog maakt automatisch 1 screenshot van de actieve Flutter canvas/route via de render tree.
+    - **Nieuwe functionaliteit**:
+      - Gebruikers kunnen zelf handmatig extra foto's/bestanden uploaden (via file picker, drag & drop of plakken via klembord `Ctrl+V`).
+      - Ondersteuning voor meerdere bijlagen (bijv. tot 3 à 5 afbeeldingen per melding) met een preview-rij/thumbnails en individuele verwijderknoppen.
+      - **Database & Storage**: `screenshot_url` kolom in `public.feedback_reports` uitbreiden of aanvullen met `screenshot_urls TEXT[]` (of `JSONB` array met metadata).
+      - **GitHub Issue Formatter**: Edge Function embedt alle bijlagen netjes onder elkaar of in een responsive Markdown tabel/galerij in het GitHub issue.
+      - **Hub Beheer (`/admin/feedback`)**: Fotogalerij/lightbox om eenvoudig door alle bijgevoegde schermafbeeldingen van de melding te bladeren.
 
 ### 2. Gedeelde Design System & Theme Package voor Spoke Apps (`packages/schrobbedock_theme`) [AFGEROND - v1.0.0]
 - **Doel**: Spoke apps kunnen net als de feedback module via 1 Git dependency exact hetzelfde thema- en stylingsysteem importeren.
