@@ -76,14 +76,10 @@
     - **Architectuur (Tweeweg)**:
       - **Hub ➔ GitHub**: Admin klikt op *"Melding Verwijderen"* in `/admin/feedback` ➔ screenshot in Supabase storage bucket `feedback_attachments` wordt gewist ➔ Supabase Edge Function roept `DELETE /repos/{owner}/{repo}/issues/{issue_number}` aan op GitHub (vereist GitHub PAT met admin rechten op de repo) ➔ record in `feedback_reports` wordt verwijderd (hard delete of geanonimiseerde tombstone).
       - **GitHub ➔ Hub**: Beheerder verwijdert issue via GitHub UI ➔ GitHub stuurt `issues.deleted` webhook event ➔ `github-webhook` Edge Function verwijdert automatisch het gekoppelde record in `public.feedback_reports` en de opgeslagen screenshot in storage. Geen zwevende "zombie" records in het Hub dashboard.
-  - **Toekomstige Uitbreiding: Meerdere Foto's & Handmatige Bijlagen Toevoegen**:
-    - **Huidige situatie**: De dialoog maakt automatisch 1 screenshot van de actieve Flutter canvas/route via de render tree.
-    - **Nieuwe functionaliteit**:
-      - Gebruikers kunnen zelf handmatig extra foto's/bestanden uploaden (via file picker, drag & drop of plakken via klembord `Ctrl+V`).
-      - Ondersteuning voor meerdere bijlagen (bijv. tot 3 à 5 afbeeldingen per melding) met een preview-rij/thumbnails en individuele verwijderknoppen.
-      - **Database & Storage**: `screenshot_url` kolom in `public.feedback_reports` uitbreiden of aanvullen met `screenshot_urls TEXT[]` (of `JSONB` array met metadata).
-      - **GitHub Issue Formatter**: Edge Function embedt alle bijlagen netjes onder elkaar of in een responsive Markdown tabel/galerij in het GitHub issue.
-      - **Hub Beheer (`/admin/feedback`)**: Fotogalerij/lightbox om eenvoudig door alle bijgevoegde schermafbeeldingen van de melding te bladeren.
+  - **Meerdere Foto's & Handmatige Bijlagen Toevoegen [AFGEROND - v1.1.0]**:
+    - Gebruikers kunnen 0 tot 5 bijlagen meesturen. De automatische schermopname kan met 1 klik worden gewist.
+    - Handmatige upload via `image_picker` geïntegreerd in `FeedbackDialog` met horizontale fotostrip, miniatuurweergaven, individuele verwijderknoppen en lightbox voorvertoning.
+    - Volledige end-to-end verwerking in Supabase Storage (`feedback_attachments`), PostgreSQL (`attachment_urls TEXT[]`), Edge Function `submit-feedback` en responsive Markdown galerij in GitHub Issues.
   - **Live Productie Validatie & E2E Testen (Online Omgeving) [AFGEROND - 03-10-2026]**:
     - **Opgelost probleem**: Feedback inzendingen vielen live terug op de database fallback door een PostgreSQL permissiefout (`42501: permission denied for table apps`) doordat de `service_role` geen expliciete select-rechten had op `public.apps`.
     - **Doorvoerde fixes**:

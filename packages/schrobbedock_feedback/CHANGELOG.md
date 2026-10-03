@@ -2,6 +2,14 @@
 
 Alle noemenswaardige wijzigingen aan de `schrobbedock_feedback` package worden gedocumenteerd in dit bestand.
 
+## [1.1.0] - 2026-10-03
+
+### Toegevoegd
+- **Meerdere Bijlagen (0 tot 5)**: Gebruikers kunnen nu 0, 1 of meerdere bijlagen per melding toevoegen.
+- **Handmatige Foto-Upload**: Integratie met `image_picker` waarmee gebruikers zelf afbeeldingen/foto's kunnen selecteren vanaf hun apparaat.
+- **Volledig Verwijderbaar**: De automatische schermopname kan eenvoudig worden verwijderd om meldingen zonder beeldmateriaal te versturen.
+- **Interactieve Miniatuurweergave & Lightbox Preview**: Horizontale fotostrip met labels, verwijderknoppen per foto en een fullscreen voorvertoningsdialoog.
+
 ## [1.0.0] - 2026-10-01
 
 ### Toegevoegd

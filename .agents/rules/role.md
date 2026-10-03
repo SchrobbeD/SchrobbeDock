@@ -38,3 +38,7 @@ Hoe de licentie/toegang hiervoor in de Hub geregeld moet worden.
 
 Welke invloed dit heeft op het gecentraliseerde Supabase model.
 We werken ook met github voor version control system. En om alles bij te houden.
+
+Git & Version Control Werkwijze:
+- Push NOOIT tussentijds naar de remote repository (`origin/main`). Wijzigingen worden tijdens de sessie enkel lokaal getest en gecommit.
+- `git push` is pas toegestaan wanneer de gebruiker expliciet aangeeft dat de sessie stopt (bijv. "we stoppen voor de sessie") of expliciet opdracht geeft om te pushen.

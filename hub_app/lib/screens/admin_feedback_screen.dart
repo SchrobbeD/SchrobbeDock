@@ -625,18 +625,22 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Screenshots thumbnails
+            // Bijlagen / Foto's thumbnails
             if (attachments.isNotEmpty) ...[
               Wrap(
                 spacing: 12,
                 runSpacing: 8,
-                children: attachments.map((url) {
+                children: attachments.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final url = entry.value;
+                  final label = attachments.length == 1 ? 'Bijlage bekijken' : 'Bijlage ${idx + 1}';
                   return InkWell(
                     onTap: () => _showImageModal(url),
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: theme.colorScheme.outline.withValues(alpha: 0.3),
@@ -649,15 +653,16 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                             borderRadius: BorderRadius.circular(6),
                             child: Image.network(
                               url,
-                              width: 48,
-                              height: 48,
+                              width: 36,
+                              height: 36,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.broken_image, size: 24),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Text('Schermafbeelding bekijken',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text(label,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                           const SizedBox(width: 4),
                           const Icon(Icons.open_in_new, size: 14),
                         ],

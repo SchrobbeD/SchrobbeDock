@@ -1,8 +1,24 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'environment_service.dart';
+
+/// Representeert een bijlage (automatische schermopname of door de gebruiker gekozen afbeelding)
+class FeedbackAttachment {
+  final String id;
+  final String name;
+  final Uint8List bytes;
+  final bool isAutoScreenshot;
+
+  const FeedbackAttachment({
+    required this.id,
+    required this.name,
+    required this.bytes,
+    this.isAutoScreenshot = false,
+  });
+}
 
 class FeedbackDialog extends StatefulWidget {
   final String appSlug;
@@ -37,7 +53,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
 
   late String _category;
   late String _severity;
-  Uint8List? _screenshotBytes;
+  final List<FeedbackAttachment> _attachments = [];
   bool _isSubmitting = false;
   String? _errorMessage;
   Map<String, dynamic>? _successResult;
@@ -47,7 +63,16 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
     super.initState();
     _category = widget.initialCategory;
     _severity = widget.initialSeverity;
-    _screenshotBytes = widget.initialScreenshot;
+    if (widget.initialScreenshot != null) {
+      _attachments.add(
+        FeedbackAttachment(
+          id: 'auto_screenshot',
+          name: 'Schermopname',
+          bytes: widget.initialScreenshot!,
+          isAutoScreenshot: true,
+        ),
+      );
+    }
     _titleController = TextEditingController(text: widget.initialTitle ?? '');
     _descriptionController =
         TextEditingController(text: widget.initialDescription ?? '');
@@ -58,6 +83,85 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImages() async {
+    const maxAttachments = 5;
+    if (_attachments.length >= maxAttachments) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Je kunt maximaal 5 afbeeldingen toevoegen.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final picker = ImagePicker();
+      final List<XFile> picked = await picker.pickMultiImage();
+      if (picked.isEmpty) return;
+
+      for (final file in picked) {
+        if (_attachments.length >= maxAttachments) break;
+        final bytes = await file.readAsBytes();
+        _attachments.add(
+          FeedbackAttachment(
+            id: 'att_${DateTime.now().microsecondsSinceEpoch}',
+            name: file.name.isNotEmpty ? file.name : 'Bijlage ${_attachments.length + 1}',
+            bytes: bytes,
+            isAutoScreenshot: false,
+          ),
+        );
+      }
+      setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Kon afbeelding(en) niet selecteren: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showImagePreview(FeedbackAttachment att) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              clipBehavior: Clip.none,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.memory(
+                  att.bytes,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: CircleAvatar(
+                backgroundColor: Colors.black.withValues(alpha: 0.65),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _submitFeedback() async {
@@ -82,13 +186,14 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
     try {
       final List<String> attachmentUrls = [];
 
-      // 1. Upload screenshot als deze aanwezig is
-      if (_screenshotBytes != null) {
+      // 1. Upload alle bijlagen naar Supabase Storage (indien aanwezig)
+      for (int i = 0; i < _attachments.length; i++) {
+        final att = _attachments[i];
         final fileName =
-            '${user.id}/${DateTime.now().millisecondsSinceEpoch}_screenshot.png';
+            '${user.id}/${DateTime.now().millisecondsSinceEpoch}_${i + 1}.png';
         await client.storage.from('feedback_attachments').uploadBinary(
               fileName,
-              _screenshotBytes!,
+              att.bytes,
               fileOptions: const FileOptions(contentType: 'image/png'),
             );
         final publicUrl =
@@ -408,89 +513,8 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Screenshot sectie
-                  Text(
-                    'SCHERMAFBEELDING & BIJLAGEN',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.1,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (_screenshotBytes != null)
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color:
-                              theme.colorScheme.outline.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.memory(
-                              _screenshotBytes!,
-                              width: 64,
-                              height: 64,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Automatische schermopname',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.w600)),
-                                Text('Gemaakt bij het openen van dit dialoog',
-                                    style: TextStyle(fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Colors.red),
-                            tooltip: 'Verwijder schermafbeelding',
-                            onPressed: () {
-                              setState(() => _screenshotBytes = null);
-                            },
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color:
-                              theme.colorScheme.outline.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.image_not_supported_outlined,
-                              size: 20,
-                              color: theme.colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'Geen schermafbeelding gekoppeld',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  // Screenshot & Bijlagen sectie (0 tot 5 bijlagen)
+                  _buildAttachmentsSection(theme),
 
                   if (widget.stackTrace != null) ...[
                     const SizedBox(height: 16),
@@ -583,6 +607,220 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       onSelected: (selected) {
         if (selected) setState(() => _severity = value);
       },
+    );
+  }
+
+  Widget _buildAttachmentsSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'BIJLAGEN (${_attachments.length}/5)',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                  color: theme.colorScheme.primary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (_attachments.length < 5)
+              TextButton.icon(
+                onPressed: _pickImages,
+                icon: const Icon(Icons.add_photo_alternate_outlined, size: 16),
+                label: const Text('Toevoegen', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_attachments.isNotEmpty)
+          SizedBox(
+            height: 96,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _attachments.length + (_attachments.length < 5 ? 1 : 0),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                if (index == _attachments.length) {
+                  return _buildAddTile(theme);
+                }
+                final att = _attachments[index];
+                return _buildAttachmentThumbnail(theme, att, index);
+              },
+            ),
+          )
+        else
+          InkWell(
+            onTap: _pickImages,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.add_photo_alternate_outlined,
+                        size: 20, color: theme.colorScheme.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Geen bijlagen (optioneel)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Klik hier om zelf afbeeldingen of foto\'s toe te voegen (max 5)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right,
+                      size: 20, color: theme.colorScheme.onSurfaceVariant),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentThumbnail(ThemeData theme, FeedbackAttachment att, int index) {
+    return Container(
+      width: 90,
+      height: 96,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.3),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            InkWell(
+              onTap: () => _showImagePreview(att),
+              child: Image.memory(
+                att.bytes,
+                fit: BoxFit.cover,
+              ),
+            ),
+            // Bottom label
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                color: Colors.black.withValues(alpha: 0.65),
+                child: Text(
+                  att.isAutoScreenshot ? 'Schermopname' : att.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            // Delete button top right
+            Positioned(
+              top: 4,
+              right: 4,
+              child: InkWell(
+                key: Key('delete_attachment_$index'),
+                onTap: () {
+                  setState(() {
+                    _attachments.removeAt(index);
+                  });
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.75),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 13,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddTile(ThemeData theme) {
+    return InkWell(
+      onTap: _pickImages,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 80,
+        height: 96,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_photo_alternate_outlined,
+                size: 24, color: theme.colorScheme.primary),
+            const SizedBox(height: 4),
+            Text(
+              'Toevoegen',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
