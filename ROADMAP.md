@@ -84,17 +84,15 @@
       - **Database & Storage**: `screenshot_url` kolom in `public.feedback_reports` uitbreiden of aanvullen met `screenshot_urls TEXT[]` (of `JSONB` array met metadata).
       - **GitHub Issue Formatter**: Edge Function embedt alle bijlagen netjes onder elkaar of in een responsive Markdown tabel/galerij in het GitHub issue.
       - **Hub Beheer (`/admin/feedback`)**: Fotogalerij/lightbox om eenvoudig door alle bijgevoegde schermafbeeldingen van de melding te bladeren.
-  - **Prioritair Actiepunt (Volgende Sessie): Live Productie Validatie & E2E Testen (Online Omgeving)**:
-    - **Probleem**: Lokaal werkt de synchronisatie via Smee.io, maar in de live online versie (productie) lijkt de koppeling tussen GitHub en SchrobbeDock nog niet (volledig) te functioneren.
-    - **Stappenplan voor verificatie & herstel**:
-      1. **Edge Functions Deployen naar Live Supabase**: Controleren of de nieuwste Edge Functions (`github-webhook`, `sync-feedback-status` en `submit-feedback`) daadwerkelijk zijn gedeployd naar het externe productie-Supabase project.
-      2. **Productie Supabase Secrets**: Controleren/instellen van `GITHUB_FEEDBACK_TOKEN` en `GITHUB_WEBHOOK_SECRET` in de remote Supabase vault (`supabase secrets set`).
-      3. **Productie GitHub Webhook URL**: In de GitHub repository settings de webhook URL configureren naar de live Edge Function URL (`https://<remote-project-ref>.supabase.co/functions/v1/github-webhook`) met de bijbehorende Secret (zodat GitHub live pushes niet meer via de tijdelijke lokale Smee proxy hoeven te lopen).
-      4. **End-to-End Live Testen**:
-         - Bug/feedback melden via de live gehoste Hub (`one.com`).
-         - Nagaan of het issue verschijnt in GitHub met screenshot en metadata.
-         - Status wijzigen in `/admin/feedback` en controleren of het GitHub issue verandert.
-         - Issue sluiten in GitHub en controleren of het live Hub dashboard real-time wordt bijgewerkt.
+  - **Live Productie Validatie & E2E Testen (Online Omgeving) [AFGEROND - 03-10-2026]**:
+    - **Opgelost probleem**: Feedback inzendingen vielen live terug op de database fallback door een PostgreSQL permissiefout (`42501: permission denied for table apps`) doordat de `service_role` geen expliciete select-rechten had op `public.apps`.
+    - **Doorvoerde fixes**:
+      - Migratie [20261003231000_grant_service_role_permissions.sql](file:///c:/Users/robbe/Documents/SchrobbeDock/supabase/migrations/20261003231000_grant_service_role_permissions.sql) aangemaakt en uitgevoerd (`GRANT USAGE ON SCHEMA public... GRANT ALL ON ALL TABLES/SEQUENCES/ROUTINES TO service_role`).
+      - CI/CD workflow [.github/workflows/production.yml](file:///c:/Users/robbe/Documents/SchrobbeDock/.github/workflows/production.yml) uitgebreid met automatische `supabase functions deploy`.
+      - [.github/workflows/deploy_web.yml](file:///c:/Users/robbe/Documents/SchrobbeDock/.github/workflows/deploy_web.yml) uitgebreid met test en dependency management voor `schrobbedock_feedback`.
+    - **Live Validatie**:
+      - Edge Function `submit-feedback` succesvol live aangeroepen; issue #8 aangemaakt op GitHub met labels en metadata.
+      - Edge Function `sync-feedback-status` live getest; statuswijzigingen (`in_progress`, `resolved`) synchroniseren met issue comments, labels en issue closure op GitHub.
 
 ### 2. Gedeelde Design System & Theme Package voor Spoke Apps (`packages/schrobbedock_theme`) [AFGEROND - v1.0.0]
 - **Doel**: Spoke apps kunnen net als de feedback module via 1 Git dependency exact hetzelfde thema- en stylingsysteem importeren.
@@ -107,7 +105,23 @@
   - **Supabase Sync**: Synchronisatie met `raw_user_meta_data.preferences` en RPC `update_user_preferences`.
   - **Hub Integratie**: `hub_app` ontkoppeld en direct gekoppeld via `path: ../packages/schrobbedock_theme`. Alle 12 package tests en 10 Hub tests geslaagd met 0 analyzer waarschuwingen.
 
-### 3. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
+### 3. Versie-indicatie & Build Info in Admin Beheer (Live Versie Validatie)
+- **Doel**: In de live productieomgeving (bijv. op `robbedillen.be`) direct en ondubbelzinnig kunnen verifiëren welke softwareversie, Git commit SHA en builddatum actief is. Dit voorkomt verwarring door agressieve browsercaching van Flutter Web (`flutter.js`, `main.dart.js`, service workers).
+- **Architectuur & Technische Implementatie**:
+  - **CI/CD Injectie (`.github/workflows/deploy_web.yml`)**:
+    - Tijdens de `flutter build web --release` stap via `--dart-define` de actuele release- en git-metadata injecteren:
+      - `--dart-define=APP_VERSION=1.0.0+${{ github.run_number }}`
+      - `--dart-define=GIT_COMMIT_SHA=${{ github.sha }}`
+      - `--dart-define=BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")`
+  - **Centrale Versieklasse (`hub_app/lib/config/app_version.dart`)**:
+    - Bevat helpers voor weergave van korte Git hash (`0832cf6`), semver versienummer en buildtijdstip met veilige fallbacks voor lokale ontwikkeling (`dev-local`).
+  - **UI Integratie in Admin Beheer**:
+    - **Admin AppBar / Header Badge**: Een subtiele, klikbare versiebadge in `/admin/invites` en `/admin/feedback` (bijv. `v1.0.0 (0832cf6)`).
+    - **Systeem Info Modal / Dialoog**:
+      - Toont versienummer, Git commit met directe GitHub commit link, builddatum en Supabase project-ID/omgeving.
+      - **Knop *"Cache Legen & Geforceerd Herladen"***: Voert een harde herlaadactie uit (unregisters eventuele service workers en ververst `window.location`) zodat beheerders met 1 klik garanderen dat ze de nieuwste deployment zien.
+
+### 4. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
 - **Doel**: 
   1. Platform Admins kunnen vanuit de Hub gebruikers deactiveren of definitief verwijderen uit het ecosysteem.
   2. Gebruikers kunnen via een profieloverzicht (`/profile`) hun opgeslagen accountgegevens raadplegen en zelfstandig hun account definitief laten verwijderen (Right to be Forgotten).
@@ -126,7 +140,7 @@
     - **Admin Hub (`/admin/invites` tab Gebruikers)**: Rode actieknop *"Gebruiker Verwijderen"* met bevestigingsdialoog ("Typ de naam over om te bevestigen").
     - **Self-Service Profiel (`/profile`)**: Overzicht van opgeslagen gegevens (naam, e-mail, telefoon, adres, gekoppelde login provider zoals Google), plus een gevarenzone met *"Account Definitief Verwijderen"*.
 
-### 4. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
+### 5. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
 - **README.md (Repository Overview & Setup)**:
   - Overzicht van de Hub & Spoke ecosysteem architectuur.
   - Lokale installatie- en opstartinstructies (Supabase CLI, Flutter, migraties draaien, seed data).
@@ -142,7 +156,7 @@
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
 
-### 5. Multi-Factor Authenticatie (MFA) Uitbreidingen: SMS, E-mail & Passkeys (WebAuthn)
+### 6. Multi-Factor Authenticatie (MFA) Uitbreidingen: SMS, E-mail & Passkeys (WebAuthn)
 - **Doel**:
   - Naast de huidige authenticator-app (TOTP / RFC 6238) gebruikers de keuze bieden uit alternatieve en complementaire 2FA-methoden: SMS OTP, E-mail OTP en hardware/biometrische Passkeys (FIDO2 / WebAuthn).
 - **Haalbaarheid & Architectuur (Supabase Auth & Flutter)**:
