@@ -29,11 +29,13 @@ jobs:
       - name: Install dependencies
         run: |
           cd ../packages/schrobbedock_theme && flutter pub get
+          cd ../schrobbedock_feedback && flutter pub get
           cd ../../hub_app && flutter pub get
 
       - name: Run Static Analysis & Tests
         run: |
           cd ../packages/schrobbedock_theme && flutter test
+          cd ../schrobbedock_feedback && flutter test
           cd ../../hub_app
           flutter analyze
           flutter test
