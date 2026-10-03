@@ -42,3 +42,4 @@ We werken ook met github voor version control system. En om alles bij te houden.
 Git & Version Control Werkwijze:
 - Push NOOIT tussentijds naar de remote repository (`origin/main`). Wijzigingen worden tijdens de sessie enkel lokaal getest en gecommit.
 - `git push` is pas toegestaan wanneer de gebruiker expliciet aangeeft dat de sessie stopt (bijv. "we stoppen voor de sessie") of expliciet opdracht geeft om te pushen.
+- **Sessie-einde & Release Check**: Wanneer de sessie wordt afgesloten en er naar `main` wordt gemerged/gepusht, evalueer dan ALTIJD proactief of er packages of de Hub zijn gewijzigd die een nieuwe versie vereisen. Controleer of er een nieuwe Git tag/release gemaakt moet worden conform de conventie (bijv. `feedback-vX.Y.Z`, `theme-vX.Y.Z`), werk de CHANGELOG bij en stel dit direct voor bij het afsluiten.
