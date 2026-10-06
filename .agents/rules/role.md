@@ -48,5 +48,6 @@ Lokale Ontwikkelomgeving & Testscenario Protocol:
 - Voordat je testscenario's aanbiedt, controleer ALTIJD proactief of de lokale ontwikkelstack operationeel en up-to-date is:
   1. Draait Supabase lokaal (`supabase status`) en zijn alle openstaande migraties toegepast (`supabase migration list --local` / `supabase migration up`)?
   2. Draaien de benodigde Edge Functions lokaal (`supabase functions serve --env-file ./supabase/functions/.env`) als de test afhankelijk is van server-side logica (zoals GitHub synchronisatie)?
-  3. Is de Flutter app geconfigureerd voor de juiste Supabase target (lokaal vs. cloud)?
+  3. Draait de webhook relay proxy (`npx -y smee-client -u https://smee.io/b6SyKuPZpn26ba7B -t http://127.0.0.1:54321/functions/v1/github-webhook`) als we inkomende GitHub webhook synchronisatie (zoals issue sluiten/heropenen/verwijderen) lokaal testen?
+  4. Is de Flutter app geconfigureerd voor de juiste Supabase target (lokaal vs. cloud)?
 - Als de lokale stack niet klaarstaat, ontbrekende migraties heeft of vereiste services mist: geef ALTIJD direct de exacte, kant-en-klare opstart- en migratie-instructies aan de gebruiker voordat je overgaat naar functionele teststappen.
