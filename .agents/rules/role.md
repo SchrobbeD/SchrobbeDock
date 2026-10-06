@@ -43,3 +43,10 @@ Git & Version Control Werkwijze:
 - Push NOOIT tussentijds naar de remote repository (`origin/main`). Wijzigingen worden tijdens de sessie enkel lokaal getest en gecommit.
 - `git push` is pas toegestaan wanneer de gebruiker expliciet aangeeft dat de sessie stopt (bijv. "we stoppen voor de sessie") of expliciet opdracht geeft om te pushen.
 - **Sessie-einde & Release Check**: Wanneer de sessie wordt afgesloten en er naar `main` wordt gemerged/gepusht, evalueer dan ALTIJD proactief of er packages of de Hub zijn gewijzigd die een nieuwe versie vereisen. Controleer of er een nieuwe Git tag/release gemaakt moet worden conform de conventie (bijv. `feedback-vX.Y.Z`, `theme-vX.Y.Z`), werk de CHANGELOG bij en stel dit direct voor bij het afsluiten.
+
+Lokale Ontwikkelomgeving & Testscenario Protocol:
+- Voordat je testscenario's aanbiedt, controleer ALTIJD proactief of de lokale ontwikkelstack operationeel en up-to-date is:
+  1. Draait Supabase lokaal (`supabase status`) en zijn alle openstaande migraties toegepast (`supabase migration list --local` / `supabase migration up`)?
+  2. Draaien de benodigde Edge Functions lokaal (`supabase functions serve --env-file ./supabase/functions/.env`) als de test afhankelijk is van server-side logica (zoals GitHub synchronisatie)?
+  3. Is de Flutter app geconfigureerd voor de juiste Supabase target (lokaal vs. cloud)?
+- Als de lokale stack niet klaarstaat, ontbrekende migraties heeft of vereiste services mist: geef ALTIJD direct de exacte, kant-en-klare opstart- en migratie-instructies aan de gebruiker voordat je overgaat naar functionele teststappen.
