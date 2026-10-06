@@ -157,6 +157,142 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
     }
   }
 
+  Future<void> _deleteReport(Map<String, dynamic> report) async {
+    final reportId = report['id'] as String;
+    final issueNumber = report['github_issue_number'];
+    final theme = Theme.of(context);
+
+    // Toon bevestigingsdialoog met expliciete invoer van 'VERWIJDER'
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        String input = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isMatch = input.trim().toUpperCase() == 'VERWIJDER';
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 28),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('Melding Definitief Verwijderen'),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Let op: Dit verwijdert de melding permanent uit de database, wist alle gekoppelde bijlagen in storage en verwijdert het GitHub Issue #${issueNumber ?? '-'}.',
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Typ "VERWIJDER" hieronder om te bevestigen:',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'VERWIJDER',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      isDense: true,
+                    ),
+                    onChanged: (val) {
+                      setDialogState(() {
+                        input = val;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Annuleren'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                  ),
+                  onPressed: isMatch ? () => Navigator.pop(ctx, true) : null,
+                  child: const Text('Definitief Verwijderen'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Melding en GitHub issue worden verwijderd...'),
+          ],
+        ),
+        duration: Duration(seconds: 4),
+      ),
+    );
+
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      final res = await supabase.functions.invoke(
+        'delete-feedback',
+        body: {'report_id': reportId},
+      );
+
+      if (res.status == 200) {
+        if (mounted) {
+          setState(() {
+            _reports.removeWhere((r) => r['id'] == reportId);
+          });
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Melding en GitHub issue #${issueNumber ?? '-'} definitief verwijderd.'),
+              backgroundColor: Colors.green.shade700,
+            ),
+          );
+        }
+      } else {
+        final errorMsg = (res.data is Map && res.data['error'] != null)
+            ? res.data['error'].toString()
+            : 'Fout bij verwijderen (HTTP ${res.status})';
+        throw Exception(errorMsg);
+      }
+    } catch (err) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fout bij verwijderen: $err'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
   List<Map<String, dynamic>> get _filteredReports {
     return _reports.where((report) {
       // Status filter
@@ -602,6 +738,16 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                       }
                     },
                   ),
+                ),
+
+                const SizedBox(width: 8),
+
+                // Knop voor definitief verwijderen (Hard delete)
+                IconButton(
+                  icon: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 20),
+                  tooltip: 'Melding en GitHub issue definitief verwijderen',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _deleteReport(report),
                 ),
               ],
             ),

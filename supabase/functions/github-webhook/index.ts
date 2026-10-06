@@ -7,6 +7,21 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Extraheert het storage object pad uit een Supabase public URL
+function extractStoragePath(url: string, bucketName = "feedback_attachments"): string | null {
+  try {
+    const marker = `/${bucketName}/`;
+    const idx = url.indexOf(marker);
+    if (idx !== -1) {
+      const pathWithQuery = url.substring(idx + marker.length);
+      return decodeURIComponent(pathWithQuery.split("?")[0]);
+    }
+  } catch (err) {
+    console.error("Fout bij parsen van storage URL in webhook:", url, err);
+  }
+  return null;
+}
+
 // Verifieert de HMAC SHA-256 handtekening van GitHub
 async function verifySignature(secret: string, header: string | null, payload: string): Promise<boolean> {
   if (!secret) return true; // Als er lokaal geen secret is ingesteld, bypass verificatie
@@ -90,7 +105,7 @@ serve(async (req) => {
     // 3. Zoek het gekoppelde feedback rapport in de database
     const { data: reports, error: findError } = await adminClient
       .from("feedback_reports")
-      .select("id, status, apps(github_repo_name, github_repo_owner)")
+      .select("id, status, attachment_urls, apps(github_repo_name, github_repo_owner)")
       .eq("github_issue_number", issueNumber);
 
     if (findError || !reports || reports.length === 0) {
@@ -108,9 +123,54 @@ serve(async (req) => {
     }) ?? reports[0];
 
     const reportId = matchingReport.id;
+
+    // 4. Actie: deleted (Tweeweg verwijdering vanuit GitHub UI of API)
+    if (action === "deleted") {
+      console.log(`[GitHub Webhook] Issue #${issueNumber} verwijderd op GitHub. Opschonen rapport ${reportId}...`);
+
+      // Verwijder fysieke bestanden uit de storage bucket
+      const attachmentUrls: string[] = matchingReport.attachment_urls || [];
+      if (attachmentUrls.length > 0) {
+        const pathsToDelete: string[] = [];
+        for (const url of attachmentUrls) {
+          const path = extractStoragePath(url, "feedback_attachments");
+          if (path) pathsToDelete.push(path);
+        }
+        if (pathsToDelete.length > 0) {
+          console.log(`[GitHub Webhook] Verwijderen ${pathsToDelete.length} bestanden uit feedback_attachments:`, pathsToDelete);
+          await adminClient.storage.from("feedback_attachments").remove(pathsToDelete);
+        }
+      }
+
+      // Verwijder database record
+      const { error: delError } = await adminClient
+        .from("feedback_reports")
+        .delete()
+        .eq("id", reportId);
+
+      if (delError) {
+        console.error("[GitHub Webhook] Fout bij verwijderen rapport record:", delError);
+        return new Response(JSON.stringify({ error: "Failed to delete feedback report", details: delError }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      console.log(`[GitHub Webhook] Rapport ${reportId} en bijlagen succesvol verwijderd na GitHub issue deletion.`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Report and attachments successfully deleted following GitHub issue deletion",
+          report_id: reportId,
+          github_issue_number: issueNumber,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     let newStatus: string | null = null;
 
-    // 4. Bepaal de nieuwe status op basis van de GitHub actie
+    // 5. Bepaal de nieuwe status op basis van de GitHub actie
     if (action === "closed") {
       newStatus = "resolved";
     } else if (action === "reopened") {
