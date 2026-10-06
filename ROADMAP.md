@@ -122,30 +122,30 @@
     - PostgreSQL RLS policy `DELETE ON public.feedback_reports`: Uitsluitend toegestaan voor Platform Admins (`is_admin()`) en `service_role`.
     - Storage policy voor `storage.objects` op `feedback_attachments`: `DELETE` uitsluitend voor admins en `service_role`.
 
-### 4. Tweeweg Communicatie & Messaging op Issues (Hub & Spoke ↔ GitHub)
+### 4. Communicatie & Statusportaal tussen Melder en Admin (Mijn Feedback & Issue Chat in de Hub)
 - **Doel**:
-  - Platformbeheerders moeten rechtstreeks vanuit de Hub verduidelijkingsvragen kunnen stellen aan melders of status-updates communiceren.
-  - Eindgebruikers kunnen vanuit de Hub (of Spoke) antwoorden en toelichting geven zonder dat zij een GitHub-account nodig hebben.
-  - Ontwikkelaars kunnen via GitHub Issue Comments reageren, wat realtime synchroniseert naar de Hub conversatiedraad.
-- **Architectuur & Technische Implementatie**:
-  - **Database (Supabase)**:
-    - Tabel `public.feedback_comments`:
+  - Direct communicatiekanaal in de Hub tussen de **melder (gebruiker)** en de **platformbeheerder (admin)** om gemelde problemen uit te klaren, ontbrekende informatie op te vragen en gebruikers op de hoogte te houden van de voortgang en status.
+- **Functionaliteiten & Architectuur**:
+  - **Gebruikersportaal ("Mijn Meldingen") in de Hub**:
+    - Een toegankelijke weergave voor reguliere gebruikers (bijv. in het profiel of dashboard) met een overzicht van al hun eigen ingezonden feedbackrapporten.
+    - Duidelijke statusindicatie voor de gebruiker: *🔴 Open*, *🟠 In behandeling*, *🟢 Opgelost*, inclusief datum van laatste activiteit.
+  - **Messaging / Chat-draad per Melding (Gebruiker ↔ Admin)**:
+    - **Admin ➔ Gebruiker**: Admin kan vanuit `/admin/feedback` gerichte bijvragen stellen (bijv. "Op welk besturingssysteem gebeurt dit?" of "Kun je de exacte stappen omschrijven?") of een toelichting geven bij een statuswijziging.
+    - **Gebruiker ➔ Admin**: De melder kan direct reageren vanuit zijn overzicht in de Hub om opheldering te geven.
+    - **Notificaties**: Melder (en admin) krijgen in de Hub een visuele melding / badge wanneer er een nieuw bericht is op een openstaand feedback-item.
+  - **Database & RLS (Supabase)**:
+    - Tabel `public.feedback_messages` (of `feedback_comments`):
       - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
       - `report_id UUID REFERENCES public.feedback_reports(id) ON DELETE CASCADE`
-      - `user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL`
-      - `content TEXT NOT NULL`
-      - `github_comment_id BIGINT`
-      - `is_internal BOOLEAN DEFAULT FALSE` (optioneel voor interne admin-notities die niet naar GitHub gaan)
+      - `sender_id UUID REFERENCES public.profiles(id)`
+      - `sender_role TEXT CHECK (sender_role IN ('user', 'admin'))`
+      - `message TEXT NOT NULL`
       - `created_at TIMESTAMPTZ DEFAULT NOW()`
     - RLS Policies:
-      - Melder mag comments lezen en toevoegen op eigen meldingen.
-      - Super Admins mogen alle comments lezen en plaatsen.
-  - **Tweeweg Synchronisatie**:
-    - **Hub ➔ GitHub**: Reactie van admin in de Hub roept Edge Function `submit-feedback-comment` aan ➔ plaatst reactie via GitHub REST API (`POST /repos/{owner}/{repo}/issues/{issue_number}/comments`) met badge *"Verstuurd via SchrobbeDock Hub door [Naam]"*.
-    - **GitHub ➔ Hub**: Reactie geplaatst op GitHub ➔ GitHub triggert webhook event `issue_comment.created` ➔ `github-webhook` Edge Function slaat de reactie op in `public.feedback_comments` met Realtime sync naar de openstaande dialoog in de Hub.
-  - **UI Integratie**:
-    - Accordeon / chat-draad onderaan de meldingenkaart in `/admin/feedback`.
-    - Invoerbalk met verzendknop en directe weergave van melder vs. admin badges.
+      - Melder mag alleen berichten lezen en plaatsen op rapporten waar `user_id = auth.uid()`.
+      - Platform Super Admins mogen alle berichten op alle rapporten lezen en plaatsen.
+  - **Optionele GitHub Sync**:
+    - Berichten kunnen desgewenst ook als audit-comment naar het GitHub Issue worden doorgezet voor developers, maar het primaire doel is de directe relatie tussen gebruiker en admin binnen SchrobbeDock.
 
 ### 5. Versie-indicatie & Build Info in Admin Beheer (Live Versie Validatie)
 - **Doel**: In de live productieomgeving (bijv. op `robbedillen.be`) direct en ondubbelzinnig kunnen verifiëren welke softwareversie, Git commit SHA en builddatum actief is. Dit voorkomt verwarring door agressieve browsercaching van Flutter Web (`flutter.js`, `main.dart.js`, service workers).
