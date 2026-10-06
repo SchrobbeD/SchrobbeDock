@@ -96,37 +96,65 @@ serve(async (req) => {
     const repo = appData?.github_repo_name || "SchrobbeDock";
 
     // 4. Verwijder issue op GitHub indien gekoppeld (Strict Sync - Keuze 1.A)
+    // NB: GitHub REST API ondersteunt géén DELETE van issues; dit kan uitsluitend via GraphQL deleteIssue!
     if (issueNumber && githubToken && repo) {
-      console.log(`[delete-feedback] Verwijderen GitHub issue #${issueNumber} op ${owner}/${repo}`);
-      const ghRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`, {
-        method: "DELETE",
+      console.log(`[delete-feedback] Ophalen van node_id voor GitHub issue #${issueNumber} op ${owner}/${repo}`);
+
+      const issueRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`, {
         headers: {
           "Authorization": `Bearer ${githubToken}`,
           "Accept": "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
           "User-Agent": "SchrobbeDock-Feedback-Bot",
         },
       });
 
-      // 204 = No Content (succesvol verwijderd)
-      // 404 = Niet gevonden (waarschijnlijk reeds op GitHub verwijderd)
-      if (!ghRes.ok && ghRes.status !== 404) {
-        const ghError = await ghRes.text();
-        console.error(`[delete-feedback] GitHub weigerde DELETE (${ghRes.status}):`, ghError);
-
-        let errorMsg = `GitHub weigert verwijdering (HTTP ${ghRes.status})`;
-        if (ghRes.status === 403 || ghRes.status === 401) {
-          errorMsg = `GitHub weigert verwijdering van issue #${issueNumber}: het geconfigureerde GITHUB_FEEDBACK_TOKEN heeft geen beheerdersrechten om issues te wissen op ${owner}/${repo}.`;
-        }
-
+      if (!issueRes.ok && issueRes.status !== 404) {
+        const fetchErr = await issueRes.text();
+        console.error(`[delete-feedback] Kon issue #${issueNumber} niet ophalen op GitHub (${issueRes.status}):`, fetchErr);
         return new Response(
           JSON.stringify({
-            error: errorMsg,
-            github_status: ghRes.status,
-            github_response: ghError,
+            error: `GitHub weigert toegang tot issue #${issueNumber} (HTTP ${issueRes.status})`,
+            details: fetchErr,
           }),
           { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      if (issueRes.ok) {
+        const issueData = await issueRes.json();
+        const nodeId = issueData.node_id;
+
+        if (nodeId) {
+          console.log(`[delete-feedback] Verwijderen issue #${issueNumber} via GitHub GraphQL (node_id: ${nodeId})...`);
+          const gqlRes = await fetch("https://api.github.com/graphql", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${githubToken}`,
+              "Content-Type": "application/json",
+              "User-Agent": "SchrobbeDock-Feedback-Bot",
+            },
+            body: JSON.stringify({
+              query: `mutation DeleteIssue($id: ID!) { deleteIssue(input: { issueId: $id }) { clientMutationId } }`,
+              variables: { id: nodeId },
+            }),
+          });
+
+          const gqlData = await gqlRes.json();
+          if (gqlData.errors && gqlData.errors.length > 0) {
+            const errorMsg = gqlData.errors.map((e: any) => e.message).join(", ");
+            console.error(`[delete-feedback] GitHub GraphQL deleteIssue weigerde:`, errorMsg);
+            return new Response(
+              JSON.stringify({
+                error: `GitHub weigert verwijdering van issue #${issueNumber}: ${errorMsg}`,
+                graphql_errors: gqlData.errors,
+              }),
+              { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          console.log(`[delete-feedback] GitHub issue #${issueNumber} succesvol verwijderd via GraphQL!`);
+        }
+      } else {
+        console.log(`[delete-feedback] Issue #${issueNumber} bestaat niet meer op GitHub (404), doorgaan met lokale opschoning.`);
       }
     }
 
