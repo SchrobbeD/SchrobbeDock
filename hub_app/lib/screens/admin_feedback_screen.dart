@@ -200,6 +200,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     autofocus: true,
+                    textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
                       hintText: 'VERWIJDER',
                       border: OutlineInputBorder(),
@@ -210,6 +211,11 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                       setDialogState(() {
                         input = val;
                       });
+                    },
+                    onSubmitted: (val) {
+                      if (val.trim().toUpperCase() == 'VERWIJDER') {
+                        Navigator.pop(ctx, true);
+                      }
                     },
                   ),
                 ],
