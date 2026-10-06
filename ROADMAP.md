@@ -67,15 +67,8 @@
   - **Hub Beheer**:
     - Centraal scherm `/admin/feedback` voor platformbeheerders met filterbalk, diagnostische accordeon (omgeving & crash stacktrace), screenshot-vergroting en tweeweg statusbeheer.
     - Snelkoppelingen in Dashboard AppBar, User Action Menu en Admin Invites beheer.
-  - **Toekomstige Uitbreiding: Tweeweg Melding- & Issue-Verwijdering (Hard Delete & AVG/GDPR Opschoning)**:
-    - **Nut & Noodzaak**:
-      - *Normaal gebruik*: Issues worden normaal gesloten (`resolved`/`closed`) om historische context en audit trails te behouden.
-      - *Wanneer essentieel*:
-        1. **AVG / GDPR & Datalekken**: Wanneer een gebruiker per ongeluk wachtwoorden, API-sleutels of gevoelige persoonsgegevens meestuurt in een screenshot of beschrijving. Enkel sluiten laat de gevoelige data in GitHub history staan; een **hard delete** is juridisch en qua beveiliging verplicht.
-        2. **Spam & Testdata**: Snelle opruiming van testrapporten of corrupte/dubbele inzendingen.
-    - **Architectuur (Tweeweg)**:
-      - **Hub ➔ GitHub**: Admin klikt op *"Melding Verwijderen"* in `/admin/feedback` ➔ screenshot in Supabase storage bucket `feedback_attachments` wordt gewist ➔ Supabase Edge Function roept `DELETE /repos/{owner}/{repo}/issues/{issue_number}` aan op GitHub (vereist GitHub PAT met admin rechten op de repo) ➔ record in `feedback_reports` wordt verwijderd (hard delete of geanonimiseerde tombstone).
-      - **GitHub ➔ Hub**: Beheerder verwijdert issue via GitHub UI ➔ GitHub stuurt `issues.deleted` webhook event ➔ `github-webhook` Edge Function verwijdert automatisch het gekoppelde record in `public.feedback_reports` en de opgeslagen screenshot in storage. Geen zwevende "zombie" records in het Hub dashboard.
+  - **Tweeweg Melding- & Issue-Verwijdering (Zie Actiepunt 3)**:
+    - Opgeschoven naar een prioritair ontwikkelpunt: volwaardige hard delete voor testdata-opschoning en AVG/GDPR in beide richtingen (Hub ↔ GitHub).
   - **Meerdere Foto's & Handmatige Bijlagen Toevoegen [AFGEROND - v1.1.0]**:
     - Gebruikers kunnen 0 tot 5 bijlagen meesturen. De automatische schermopname kan met 1 klik worden gewist.
     - Handmatige upload via `image_picker` geïntegreerd in `FeedbackDialog` met horizontale fotostrip, miniatuurweergaven, individuele verwijderknoppen en lightbox voorvertoning.
@@ -83,9 +76,9 @@
   - **Live Productie Validatie & E2E Testen (Online Omgeving) [AFGEROND - 03-10-2026]**:
     - **Opgelost probleem**: Feedback inzendingen vielen live terug op de database fallback door een PostgreSQL permissiefout (`42501: permission denied for table apps`) doordat de `service_role` geen expliciete select-rechten had op `public.apps`.
     - **Doorvoerde fixes**:
-      - Migratie [20261003231000_grant_service_role_permissions.sql](file:///c:/Users/robbe/Documents/SchrobbeDock/supabase/migrations/20261003231000_grant_service_role_permissions.sql) aangemaakt en uitgevoerd (`GRANT USAGE ON SCHEMA public... GRANT ALL ON ALL TABLES/SEQUENCES/ROUTINES TO service_role`).
-      - CI/CD workflow [.github/workflows/production.yml](file:///c:/Users/robbe/Documents/SchrobbeDock/.github/workflows/production.yml) uitgebreid met automatische `supabase functions deploy`.
-      - [.github/workflows/deploy_web.yml](file:///c:/Users/robbe/Documents/SchrobbeDock/.github/workflows/deploy_web.yml) uitgebreid met test en dependency management voor `schrobbedock_feedback`.
+      - Migratie `20261003231000_grant_service_role_permissions.sql` aangemaakt en uitgevoerd (`GRANT USAGE ON SCHEMA public... GRANT ALL ON ALL TABLES/SEQUENCES/ROUTINES TO service_role`).
+      - CI/CD workflow `.github/workflows/production.yml` uitgebreid met automatische `supabase functions deploy`.
+      - `.github/workflows/deploy_web.yml` uitgebreid met test en dependency management voor `schrobbedock_feedback`.
     - **Live Validatie**:
       - Edge Function `submit-feedback` succesvol live aangeroepen; issue #8 aangemaakt op GitHub met labels en metadata.
       - Edge Function `sync-feedback-status` live getest; statuswijzigingen (`in_progress`, `resolved`) synchroniseren met issue comments, labels en issue closure op GitHub.
@@ -101,7 +94,36 @@
   - **Supabase Sync**: Synchronisatie met `raw_user_meta_data.preferences` en RPC `update_user_preferences`.
   - **Hub Integratie**: `hub_app` ontkoppeld en direct gekoppeld via `path: ../packages/schrobbedock_theme`. Alle 12 package tests en 10 Hub tests geslaagd met 0 analyzer waarschuwingen.
 
-### 3. Versie-indicatie & Build Info in Admin Beheer (Live Versie Validatie)
+### 3. Tweeweg Issue- & Feedbackverwijdering (Testdata & AVG/GDPR Opschoning)
+- **Doel & Noodzaak**:
+  - **Testdata & Spam Opschonen**: Tijdens ontwikkeling, acceptatietesten of door tests gegenereerde meldingen definitief kunnen verwijderen zonder sporen achter te laten.
+  - **AVG / GDPR & Datalekken (Right to be Forgotten)**: Wanneer een gebruiker per ongeluk wachtwoorden, API-sleutels, persoonsgegevens of vertrouwelijke schermafbeeldingen meestuurt. Enkel sluiten van het issue laat de data in de GitHub geschiedenis en Supabase storage staan; een volledige **hard delete** in beide systemen is juridisch en qua beveiliging vereist.
+- **Architectuur & Tweeweg Werking (2 Richtingen)**:
+  - **Richting 1: Hub ➔ GitHub (Verwijderen via Centraal Admin Dashboard)**:
+    - **Frontend (`hub_app/lib/screens/admin_feedback_screen.dart`)**:
+      - Prullenbak-actieknop per meldingenkaart met waarschuwingsdialoog ("Typ 'VERWIJDER' om definitief te wissen").
+      - Directe feedback en loading state tijdens verwijdering.
+    - **Backend & Edge Function (`delete-feedback`)**:
+      - Nieuwe Edge Function aangeroepen met de Bearer JWT van de beheerder.
+      - Valideert via Supabase Auth dat de beller de rol `super_admin` bezit (`public.has_role(auth.uid(), 'hub_admin', 'super_admin')`).
+      - Verwijdert alle bijbehorende afbeeldingsbestanden uit Supabase Storage bucket `feedback_attachments`.
+      - Roept GitHub REST API aan: `DELETE /repos/{owner}/{repo}/issues/{issue_number}` met de server-side `GITHUB_FEEDBACK_TOKEN` (vereist admin/write rechten op de repo).
+      - Verwijdert het database record definitief uit `public.feedback_reports`.
+  - **Richting 2: GitHub ➔ Hub (Verwijderen via GitHub UI of API)**:
+    - **Aanleiding**: Een beheerder/ontwikkelaar verwijdert een issue direct in de GitHub repository interface (*"Delete issue"* onderin de issue sidebar) of via GitHub CLI.
+    - **Webhook Event Handler (`supabase/functions/github-webhook/index.ts`)**:
+      - Vangt `issues` webhook events op met `action: "deleted"`.
+      - Valideert HMAC SHA-256 handtekening (`GITHUB_WEBHOOK_SECRET`).
+      - Zoekt het gekoppelde rapport in `public.feedback_reports` op basis van `github_issue_number` en repository mapping.
+      - Verwijdert alle gekoppelde bestanden in storage bucket `feedback_attachments`.
+      - Wist het record in `public.feedback_reports` om zwevende ("zombie") rapporten in de Hub te voorkomen.
+- **Database & RLS Beveiliging**:
+  - PostgreSQL RLS policy `DELETE ON public.feedback_reports`: Uitsluitend toegestaan voor Platform Admins (`is_admin()`) en `service_role`.
+  - Storage policy voor `storage.objects` op `feedback_attachments`: `DELETE` uitsluitend voor admins en `service_role`.
+- **CI/CD Integratie**:
+  - `delete-feedback` toevoegen aan `.github/workflows/production.yml` voor geautomatiseerde deployment naar Supabase.
+
+### 4. Versie-indicatie & Build Info in Admin Beheer (Live Versie Validatie)
 - **Doel**: In de live productieomgeving (bijv. op `robbedillen.be`) direct en ondubbelzinnig kunnen verifiëren welke softwareversie, Git commit SHA en builddatum actief is. Dit voorkomt verwarring door agressieve browsercaching van Flutter Web (`flutter.js`, `main.dart.js`, service workers).
 - **Architectuur & Technische Implementatie**:
   - **CI/CD Injectie (`.github/workflows/deploy_web.yml`)**:
@@ -117,7 +139,7 @@
       - Toont versienummer, Git commit met directe GitHub commit link, builddatum en Supabase project-ID/omgeving.
       - **Knop *"Cache Legen & Geforceerd Herladen"***: Voert een harde herlaadactie uit (unregisters eventuele service workers en ververst `window.location`) zodat beheerders met 1 klik garanderen dat ze de nieuwste deployment zien.
 
-### 4. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
+### 5. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
 - **Doel**: 
   1. Platform Admins kunnen vanuit de Hub gebruikers deactiveren of definitief verwijderen uit het ecosysteem.
   2. Gebruikers kunnen via een profieloverzicht (`/profile`) hun opgeslagen accountgegevens raadplegen en zelfstandig hun account definitief laten verwijderen (Right to be Forgotten).
@@ -136,7 +158,7 @@
     - **Admin Hub (`/admin/invites` tab Gebruikers)**: Rode actieknop *"Gebruiker Verwijderen"* met bevestigingsdialoog ("Typ de naam over om te bevestigen").
     - **Self-Service Profiel (`/profile`)**: Overzicht van opgeslagen gegevens (naam, e-mail, telefoon, adres, gekoppelde login provider zoals Google), plus een gevarenzone met *"Account Definitief Verwijderen"*.
 
-### 5. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
+### 6. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
 - **README.md (Repository Overview & Setup)**:
   - Overzicht van de Hub & Spoke ecosysteem architectuur.
   - Lokale installatie- en opstartinstructies (Supabase CLI, Flutter, migraties draaien, seed data).
@@ -152,7 +174,7 @@
   - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
   - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
 
-### 6. Multi-Factor Authenticatie (MFA) Uitbreidingen: SMS, E-mail & Passkeys (WebAuthn)
+### 7. Multi-Factor Authenticatie (MFA) Uitbreidingen: SMS, E-mail & Passkeys (WebAuthn)
 - **Doel**:
   - Naast de huidige authenticator-app (TOTP / RFC 6238) gebruikers de keuze bieden uit alternatieve en complementaire 2FA-methoden: SMS OTP, E-mail OTP en hardware/biometrische Passkeys (FIDO2 / WebAuthn).
 - **Haalbaarheid & Architectuur (Supabase Auth & Flutter)**:
