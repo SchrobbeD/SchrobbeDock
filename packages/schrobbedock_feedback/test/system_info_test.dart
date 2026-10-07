@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
 
 void main() {
-  group('AppVersion unit tests', () {
+  group('AppVersion in schrobbedock_feedback tests', () {
     test('badgeDisplay and fullDisplay format correctly', () {
       expect(AppVersion.appVersion, isNotEmpty);
       expect(AppVersion.shortSha, isNotEmpty);
@@ -11,12 +11,12 @@ void main() {
       expect(AppVersion.fullDisplay, contains(AppVersion.shortSha));
     });
 
-    test('formattedBuildTime returns expected fallback or formatted date', () {
+    test('formattedBuildTime returns fallback in local dev', () {
       expect(AppVersion.formattedBuildTime, isNotEmpty);
     });
   });
 
-  group('AppVersionBadge and SystemInfoDialog widget tests', () {
+  group('AppVersionBadge and SystemInfoDialog widget tests in package', () {
     testWidgets('AppVersionBadge renders and shows badgeDisplay', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -35,13 +35,13 @@ void main() {
       expect(find.byIcon(Icons.info_outline), findsOneWidget);
     });
 
-    testWidgets('Tapping AppVersionBadge opens SystemInfoDialog and can be closed', (tester) async {
+    testWidgets('Tapping AppVersionBadge opens SystemInfoDialog and shows clickable backend url', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             appBar: AppBar(
               actions: const [
-                AppVersionBadge(),
+                AppVersionBadge(customBackendUrl: 'https://test.supabase.co'),
               ],
             ),
           ),
@@ -55,7 +55,7 @@ void main() {
       expect(find.byType(SystemInfoDialog), findsOneWidget);
       expect(find.text('Systeem- & Versie-info'), findsOneWidget);
       expect(find.text('Git Commit'), findsOneWidget);
-      expect(find.textContaining('Backend Omgeving'), findsOneWidget);
+      expect(find.textContaining('https://test.supabase.co'), findsOneWidget);
       expect(find.text('Cache Legen & Geforceerd Herladen'), findsOneWidget);
 
       // Tap 'Sluiten' button to dismiss dialog
@@ -69,7 +69,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: SystemInfoDialog(),
+            body: SystemInfoDialog(customBackendUrl: 'https://test.supabase.co'),
           ),
         ),
       );
@@ -81,11 +81,11 @@ void main() {
       expect(find.text('Diagnose-info gekopieerd naar klembord!'), findsOneWidget);
     });
 
-    testWidgets('SystemInfoDialog hard reload button handles click in non-web test environment', (tester) async {
+    testWidgets('SystemInfoDialog hard reload button handles click in test environment', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: SystemInfoDialog(),
+            body: SystemInfoDialog(customBackendUrl: 'https://test.supabase.co'),
           ),
         ),
       );

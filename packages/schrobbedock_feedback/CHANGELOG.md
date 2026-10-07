@@ -2,6 +2,14 @@
 
 Alle noemenswaardige wijzigingen aan de `schrobbedock_feedback` package worden gedocumenteerd in dit bestand.
 
+## [1.3.0] - 2026-10-07
+
+### Toegevoegd
+- **Centrale Versie- & Systeeminfo (`AppVersion`, `SystemInfoDialog`, `AppVersionBadge`)**: Biedt een universele klikbare chip en dialoogvenster voor live softwarevalidatie in Spoke apps en de centrale Hub.
+- **Klikbare Backend Omgeving**: Directe koppeling naar de actieve Supabase backend URL met knoppen om te openen in de browser of de URL te kopiëren naar het klembord.
+- **Web Cache & Service Worker Reset (`WebCacheHelper`)**: Unregisters actieve Service Workers en schoont de browser `CacheStorage` API op voor een gegarandeerde harde asset-reload zonder de actieve login-sessie te verliezen (`localStorage` blijft behouden).
+- **Universele API**: Toegankelijk via `SchrobbeDockFeedback.showSystemInfo(context)` en de herbruikbare widget `AppVersionBadge`.
+
 ## [1.2.0] - 2026-10-07
 
 ### Toegevoegd

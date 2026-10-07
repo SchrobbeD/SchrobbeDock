@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers.dart';
-import '../widgets/app_version_badge.dart';
+import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
 
 class AdminInvitesScreen extends ConsumerStatefulWidget {
   const AdminInvitesScreen({super.key});

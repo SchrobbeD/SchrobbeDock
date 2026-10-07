@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'src/feedback_dialog.dart';
 import 'src/feedback_portal_view.dart';
 import 'src/screenshot_service.dart';
+import 'src/system_info_dialog.dart';
 
 export 'src/feedback_dialog.dart';
 export 'src/crash_boundary.dart';
@@ -14,6 +15,10 @@ export 'src/feedback_chat_widget.dart';
 export 'src/feedback_portal_view.dart';
 export 'src/models/feedback_message.dart';
 export 'src/models/feedback_report_summary.dart';
+export 'src/app_version.dart';
+export 'src/app_version_badge.dart';
+export 'src/system_info_dialog.dart';
+export 'src/web_cache/web_cache_helper.dart';
 
 class SchrobbeDockFeedback {
   /// Toont het feedback- en probleemmeldingsdialoogvenster met automatische screenshot & metadata
@@ -147,5 +152,20 @@ class SchrobbeDockFeedback {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  /// Toont het Systeem- en Versie-informatie dialoogvenster met hard reload en backend info
+  static Future<void> showSystemInfo(
+    BuildContext context, {
+    String appName = 'SchrobbeDock',
+    String? customBackendUrl,
+    String githubRepoUrl = 'https://github.com/SchrobbeD/SchrobbeDock',
+  }) {
+    return SystemInfoDialog.show(
+      context,
+      appName: appName,
+      customBackendUrl: customBackendUrl,
+      githubRepoUrl: githubRepoUrl,
+    );
   }
 }

@@ -6,7 +6,6 @@ import '../models/user_license.dart';
 import '../providers.dart';
 import '../theme/schrobbedock_theme.dart';
 import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
-import '../widgets/system_info_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});

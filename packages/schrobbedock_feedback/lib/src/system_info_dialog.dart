@@ -1,17 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../config/app_version.dart';
-import '../config/supabase_config.dart';
-import '../utils/web_cache_helper.dart';
+import 'app_version.dart';
+import 'web_cache/web_cache_helper.dart';
 
 class SystemInfoDialog extends StatefulWidget {
-  const SystemInfoDialog({super.key});
+  final String appName;
+  final String? customBackendUrl;
+  final String githubRepoUrl;
 
-  static Future<void> show(BuildContext context) {
+  const SystemInfoDialog({
+    super.key,
+    this.appName = 'SchrobbeDock',
+    this.customBackendUrl,
+    this.githubRepoUrl = 'https://github.com/SchrobbeD/SchrobbeDock',
+  });
+
+  static Future<void> show(
+    BuildContext context, {
+    String appName = 'SchrobbeDock',
+    String? customBackendUrl,
+    String githubRepoUrl = 'https://github.com/SchrobbeD/SchrobbeDock',
+  }) {
     return showDialog<void>(
       context: context,
-      builder: (_) => const SystemInfoDialog(),
+      builder: (_) => SystemInfoDialog(
+        appName: appName,
+        customBackendUrl: customBackendUrl,
+        githubRepoUrl: githubRepoUrl,
+      ),
     );
   }
 
@@ -21,6 +39,20 @@ class SystemInfoDialog extends StatefulWidget {
 
 class _SystemInfoDialogState extends State<SystemInfoDialog> {
   bool _isReloading = false;
+
+  String _resolveBackendUrl() {
+    if (widget.customBackendUrl != null && widget.customBackendUrl!.isNotEmpty) {
+      return widget.customBackendUrl!;
+    }
+    try {
+      final client = Supabase.instance.client;
+      final rawUrl = client.rest.url;
+      final uri = Uri.tryParse(rawUrl);
+      return uri?.origin ?? rawUrl;
+    } catch (_) {
+      return 'http://127.0.0.1:54321';
+    }
+  }
 
   String _getEnvironmentName(String url) {
     if (url.contains('localhost') || url.contains('127.0.0.1')) {
@@ -32,15 +64,15 @@ class _SystemInfoDialogState extends State<SystemInfoDialog> {
     return 'Aangepaste Server';
   }
 
-  String _generateDiagnosticsText(String supabaseUrl) {
+  String _generateDiagnosticsText(String backendUrl) {
     final buffer = StringBuffer();
-    buffer.writeln('=== SchrobbeDock Systeemdiagnose ===');
-    buffer.writeln('App: SchrobbeDock Hub');
+    buffer.writeln('=== ${widget.appName} Systeemdiagnose ===');
+    buffer.writeln('App: ${widget.appName}');
     buffer.writeln('Versie: ${AppVersion.appVersion}');
     buffer.writeln('Git Commit: ${AppVersion.gitCommitSha}');
     buffer.writeln('Build Tijdstip: ${AppVersion.formattedBuildTime}');
-    buffer.writeln('Supabase URL: $supabaseUrl');
-    buffer.writeln('Omgeving: ${_getEnvironmentName(supabaseUrl)}');
+    buffer.writeln('Backend URL: $backendUrl');
+    buffer.writeln('Omgeving: ${_getEnvironmentName(backendUrl)}');
     buffer.writeln('Tijdstip: ${DateTime.now().toIso8601String()}');
     return buffer.toString();
   }
@@ -58,11 +90,19 @@ class _SystemInfoDialogState extends State<SystemInfoDialog> {
     }
   }
 
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const supabaseUrl = SupabaseConfig.url;
-    final envName = _getEnvironmentName(supabaseUrl);
+    final backendUrl = _resolveBackendUrl();
+    final envName = _getEnvironmentName(backendUrl);
+    final githubCommitUrl = AppVersion.githubCommitUrl(repoUrl: widget.githubRepoUrl);
 
     return AlertDialog(
       title: Row(
@@ -92,7 +132,7 @@ class _SystemInfoDialogState extends State<SystemInfoDialog> {
                 theme: theme,
                 icon: Icons.layers_outlined,
                 title: 'Applicatie & Versie',
-                subtitle: 'SchrobbeDock Hub v${AppVersion.appVersion}',
+                subtitle: '${widget.appName} v${AppVersion.appVersion}',
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -116,7 +156,9 @@ class _SystemInfoDialogState extends State<SystemInfoDialog> {
                 theme: theme,
                 icon: Icons.commit_outlined,
                 title: 'Git Commit',
-                subtitle: AppVersion.shortSha,
+                subtitle: AppVersion.isLocalDev
+                    ? 'dev-local (ongecompileerde sessie)'
+                    : AppVersion.shortSha,
                 subtitleFontFamily: 'monospace',
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -126,7 +168,7 @@ class _SystemInfoDialogState extends State<SystemInfoDialog> {
                       icon: const Icon(Icons.copy, size: 18),
                       onPressed: () {
                         Clipboard.setData(
-                          ClipboardData(text: AppVersion.gitCommitSha),
+                          const ClipboardData(text: AppVersion.gitCommitSha),
                         );
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -136,20 +178,27 @@ class _SystemInfoDialogState extends State<SystemInfoDialog> {
                         );
                       },
                     ),
-                    if (AppVersion.githubCommitUrl != null)
-                      IconButton(
-                        tooltip: 'Bekijk op GitHub',
-                        icon: const Icon(Icons.open_in_new, size: 18),
-                        onPressed: () {
-                          launchUrl(
-                            Uri.parse(AppVersion.githubCommitUrl!),
-                            mode: LaunchMode.externalApplication,
-                          );
-                        },
-                      ),
+                    IconButton(
+                      tooltip: githubCommitUrl != null
+                          ? 'Bekijk commit op GitHub'
+                          : 'Bekijk repository op GitHub',
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                      onPressed: () => _openUrl(githubCommitUrl ?? widget.githubRepoUrl),
+                    ),
                   ],
                 ),
               ),
+              if (AppVersion.isLocalDev)
+                Padding(
+                  padding: const EdgeInsets.only(left: 32, bottom: 4),
+                  child: Text(
+                    'Tip: Start met --dart-define=GIT_COMMIT_SHA=... voor statische commit tracking.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
               const Divider(height: 20),
 
               // Build Datum & Tijd
@@ -161,33 +210,64 @@ class _SystemInfoDialogState extends State<SystemInfoDialog> {
               ),
               const Divider(height: 20),
 
-              // Supabase Backend Omgeving
-              _buildInfoTile(
-                theme: theme,
-                icon: Icons.cloud_done_outlined,
-                title: 'Backend Omgeving',
-                subtitle: '$envName ($supabaseUrl)',
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.circle, color: Colors.green, size: 8),
-                      SizedBox(width: 4),
-                      Text(
-                        'Verbonden',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
+              // Supabase Backend Omgeving (KLIKBAAR)
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _openUrl(backendUrl),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: _buildInfoTile(
+                    theme: theme,
+                    icon: Icons.cloud_done_outlined,
+                    title: 'Backend Omgeving (Klik om te openen)',
+                    subtitle: '$envName\n$backendUrl',
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Kopieer Backend URL',
+                          icon: const Icon(Icons.copy, size: 18),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: backendUrl));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Backend URL gekopieerd naar klembord!'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                    ],
+                        IconButton(
+                          tooltip: 'Open Backend in browser',
+                          icon: const Icon(Icons.open_in_new, size: 18),
+                          onPressed: () => _openUrl(backendUrl),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.circle, color: Colors.green, size: 8),
+                              SizedBox(width: 4),
+                              Text(
+                                'Verbonden',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -259,7 +339,7 @@ class _SystemInfoDialogState extends State<SystemInfoDialog> {
           label: const Text('Kopieer Diagnose Info'),
           onPressed: () {
             Clipboard.setData(
-              ClipboardData(text: _generateDiagnosticsText(supabaseUrl)),
+              ClipboardData(text: _generateDiagnosticsText(backendUrl)),
             );
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(

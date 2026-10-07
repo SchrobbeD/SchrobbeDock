@@ -563,7 +563,7 @@ packages:
       path: "../packages/schrobbedock_feedback"
       relative: true
     source: path
-    version: "1.2.0"
+    version: "1.3.0"
   schrobbedock_theme:
     dependency: "direct main"
     description:
