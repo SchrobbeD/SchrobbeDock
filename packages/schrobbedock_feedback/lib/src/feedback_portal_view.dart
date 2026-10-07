@@ -4,12 +4,14 @@ import '../schrobbedock_feedback.dart';
 
 class FeedbackPortalView extends StatefulWidget {
   final String? appSlug;
+  final String? initialReportId;
   final bool isAdmin;
   final VoidCallback? onClose;
 
   const FeedbackPortalView({
     super.key,
     this.appSlug,
+    this.initialReportId,
     this.isAdmin = false,
     this.onClose,
   });
@@ -98,9 +100,16 @@ class _FeedbackPortalViewState extends State<FeedbackPortalView> {
         _allReports = reports;
         _isLoading = false;
 
-        // Als er een geselecteerd rapport was, refresh de instantie; anders selecteer de bovenste melding
+        // Als er een geselecteerd rapport was, refresh de instantie; anders initieel id of bovenste melding
         if (_selectedReport != null) {
           final idx = reports.indexWhere((r) => r.id == _selectedReport!.id);
+          if (idx != -1) {
+            _selectedReport = reports[idx];
+          } else if (_filteredReports.isNotEmpty) {
+            _selectedReport = _filteredReports.first;
+          }
+        } else if (widget.initialReportId != null) {
+          final idx = reports.indexWhere((r) => r.id == widget.initialReportId);
           if (idx != -1) {
             _selectedReport = reports[idx];
           } else if (_filteredReports.isNotEmpty) {

@@ -813,38 +813,6 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
 
                 const Spacer(),
 
-                // Knop om Chat direct te openen / inklappen vanuit het issue
-                OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      if (_expandedChatReports.contains(reportId)) {
-                        _expandedChatReports.remove(reportId);
-                      } else {
-                        _expandedChatReports.add(reportId);
-                        report['has_unread_admin'] = false;
-                      }
-                    });
-                  },
-                  icon: Badge(
-                    isLabelVisible: report['has_unread_admin'] == true,
-                    child: Icon(
-                      _expandedChatReports.contains(reportId)
-                          ? Icons.chat_bubble
-                          : Icons.chat_bubble_outline,
-                      size: 16,
-                      color: report['has_unread_admin'] == true ? Colors.blue.shade700 : null,
-                    ),
-                  ),
-                  label: Text(
-                    _expandedChatReports.contains(reportId) ? 'Chat inklappen' : 'Chat openen',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
                 // Status Dropdown Selector
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1088,6 +1056,22 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                               ),
                             ],
                             const Spacer(),
+                            // Knop om chat in het volledige chatvenster (Mijn Meldingen) te openen
+                            IconButton(
+                              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                              tooltip: 'Open in het volledige chatvenster (Mijn Meldingen)',
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              onPressed: () async {
+                                await SchrobbeDockFeedback.showPortal(
+                                  context,
+                                  initialReportId: reportId,
+                                  isAdmin: true,
+                                );
+                                _loadInitialData(silent: true);
+                              },
+                            ),
+                            const SizedBox(width: 4),
                             Text(
                               isChatExpanded ? 'Inklappen' : 'Chat Openen',
                               style: theme.textTheme.labelMedium?.copyWith(

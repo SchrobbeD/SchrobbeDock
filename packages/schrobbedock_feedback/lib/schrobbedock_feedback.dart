@@ -55,6 +55,7 @@ class SchrobbeDockFeedback {
   static Future<void> showPortal(
     BuildContext context, {
     String? appSlug,
+    String? initialReportId,
     bool isAdmin = false,
   }) async {
     final isMobile = MediaQuery.of(context).size.width < 700;
@@ -65,6 +66,7 @@ class SchrobbeDockFeedback {
           fullscreenDialog: true,
           builder: (ctx) => FeedbackPortalView(
             appSlug: appSlug,
+            initialReportId: initialReportId,
             isAdmin: isAdmin,
             onClose: () => Navigator.of(ctx).pop(),
           ),
@@ -83,6 +85,7 @@ class SchrobbeDockFeedback {
             height: 700,
             child: FeedbackPortalView(
               appSlug: appSlug,
+              initialReportId: initialReportId,
               isAdmin: isAdmin,
               onClose: () => Navigator.of(ctx).pop(),
             ),
