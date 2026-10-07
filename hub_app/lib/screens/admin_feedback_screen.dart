@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers.dart';
 
@@ -26,10 +27,80 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
   // Geopende chats per rapport-ID
   final Set<String> _expandedChatReports = {};
 
+  RealtimeChannel? _feedbackRealtimeChannel;
+
   @override
   void initState() {
     super.initState();
     _loadInitialData();
+    _subscribeRealtime();
+  }
+
+  @override
+  void dispose() {
+    try {
+      _feedbackRealtimeChannel?.unsubscribe();
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _subscribeRealtime() {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      _feedbackRealtimeChannel = supabase
+          .channel('admin_feedback_rt_${DateTime.now().millisecondsSinceEpoch}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'feedback_reports',
+            callback: (payload) {
+              final updated = payload.newRecord;
+              if (updated.isNotEmpty) {
+                final reportId = updated['id'] as String?;
+                if (reportId != null) {
+                  final idx = _reports.indexWhere((r) => r['id'] == reportId);
+                  if (idx != -1 && mounted) {
+                    setState(() {
+                      _reports[idx]['has_unread_admin'] = updated['has_unread_admin'];
+                      _reports[idx]['has_unread_user'] = updated['has_unread_user'];
+                      _reports[idx]['status'] = updated['status'];
+                      _reports[idx]['last_message_at'] = updated['last_message_at'];
+                    });
+                  } else if (idx == -1 && payload.eventType == PostgresChangeEvent.insert) {
+                    _loadInitialData(silent: true);
+                  }
+                }
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'feedback_messages',
+            callback: (payload) {
+              final newRecord = payload.newRecord;
+              final reportId = newRecord['report_id'] as String?;
+              if (reportId != null && mounted) {
+                final currentUserId = supabase.auth.currentUser?.id;
+                final senderId = newRecord['sender_id'] as String?;
+                final isSenderMe = currentUserId != null && currentUserId == senderId;
+
+                final idx = _reports.indexWhere((r) => r['id'] == reportId);
+                if (idx != -1) {
+                  setState(() {
+                    if (!_expandedChatReports.contains(reportId) && !isSenderMe) {
+                      _reports[idx]['has_unread_admin'] = true;
+                    }
+                    _reports[idx]['last_message_at'] = newRecord['created_at'];
+                  });
+                }
+              }
+            },
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('[AdminFeedback] Realtime subscription init error: $e');
+    }
   }
 
   Future<void> _loadInitialData({bool silent = false}) async {
@@ -626,6 +697,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
   }
 
   Widget _buildReportCard(ThemeData theme, Map<String, dynamic> report) {
+    final reportId = report['id'] as String;
     final status = report['status'] as String? ?? 'open';
     final category = report['category'] as String? ?? 'bug';
     final severity = report['severity'] as String? ?? 'medium';
@@ -740,6 +812,38 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                 ],
 
                 const Spacer(),
+
+                // Knop om Chat direct te openen / inklappen vanuit het issue
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      if (_expandedChatReports.contains(reportId)) {
+                        _expandedChatReports.remove(reportId);
+                      } else {
+                        _expandedChatReports.add(reportId);
+                        report['has_unread_admin'] = false;
+                      }
+                    });
+                  },
+                  icon: Badge(
+                    isLabelVisible: report['has_unread_admin'] == true,
+                    child: Icon(
+                      _expandedChatReports.contains(reportId)
+                          ? Icons.chat_bubble
+                          : Icons.chat_bubble_outline,
+                      size: 16,
+                      color: report['has_unread_admin'] == true ? Colors.blue.shade700 : null,
+                    ),
+                  ),
+                  label: Text(
+                    _expandedChatReports.contains(reportId) ? 'Chat inklappen' : 'Chat openen',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  ),
+                ),
+                const SizedBox(width: 8),
 
                 // Status Dropdown Selector
                 Container(
@@ -922,8 +1026,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
             // Communicatie & Chat met de melder (Stabiele inklapbare sectie)
             Builder(
               builder: (context) {
-                final reportId = report['id'] as String;
-                final isChatExpanded = _expandedChatReports.contains(reportId) || report['has_unread_admin'] == true;
+                final isChatExpanded = _expandedChatReports.contains(reportId);
                 final hasUnread = report['has_unread_admin'] == true;
 
                 return Column(

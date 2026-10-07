@@ -526,28 +526,48 @@ class _FeedbackChatWidgetState extends State<FeedbackChatWidget> {
           ),
         );
       } else if (msg.isFromGitHub) {
-        roleBadge = Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: const Color(0xFF24292E),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.code, size: 10, color: Colors.white),
-              SizedBox(width: 4),
-              Text(
-                'GitHub',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+        if (widget.isAdmin) {
+          // Admin ziet specifiek dat het bericht vanaf GitHub afkomstig is
+          roleBadge = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF24292E),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.code, size: 10, color: Colors.white),
+                SizedBox(width: 4),
+                Text(
+                  'GitHub',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
+              ],
+            ),
+          );
+        } else {
+          // Eindgebruiker ziet het als een gewoon teambericht van de ontwikkelaar
+          roleBadge = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.indigo.shade600,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'Ontwikkelaar',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
-            ],
-          ),
-        );
+            ),
+          );
+        }
       } else {
         roleBadge = Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
