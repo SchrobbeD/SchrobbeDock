@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models/user_license.dart';
 
@@ -77,4 +78,16 @@ final allAppsProvider = FutureProvider<List<AppInfo>>((ref) async {
   return (response as List<dynamic>)
       .map((item) => AppInfo.fromJson(item as Map<String, dynamic>))
       .toList();
+});
+
+/// StreamProvider voor aantal ongelezen meldingen van de huidige melder
+final unreadUserFeedbackCountProvider = StreamProvider<int>((ref) {
+  return SchrobbeDockFeedback.watchUnreadCount(isAdmin: false);
+});
+
+/// StreamProvider voor aantal openstaande/ongelezen meldingen voor de beheerder
+final unreadAdminFeedbackCountProvider = StreamProvider<int>((ref) {
+  final isSuperAdmin = ref.watch(isSuperAdminProvider);
+  if (!isSuperAdmin) return Stream.value(0);
+  return SchrobbeDockFeedback.watchUnreadCount(isAdmin: true);
 });

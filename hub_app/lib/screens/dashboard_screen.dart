@@ -318,7 +318,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Future<void> _showUserActionMenu(BuildContext context, bool isSuperAdmin, String userEmail) {
+  Future<void> _showUserActionMenu(BuildContext context, bool isSuperAdmin, String userEmail, {int unreadCount = 0}) {
     return showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -341,6 +341,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   subtitle: Text(isSuperAdmin ? 'Super Administrator' : 'Ecosysteem Gebruiker'),
                 ),
                 const Divider(),
+                ListTile(
+                  leading: Badge(
+                    isLabelVisible: unreadCount > 0,
+                    label: Text('$unreadCount'),
+                    child: const Icon(Icons.support_agent_outlined),
+                  ),
+                  title: const Text('Mijn Meldingen & Status'),
+                  subtitle: const Text('Bekijk je ingediende meldingen en chat'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.go('/my-feedback');
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.palette_outlined),
                   title: const Text('Uiterlijk & Thema'),
@@ -414,6 +427,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isMobile = MediaQuery.of(context).size.width < 650;
     final userEmail = user?.email ?? '';
     final isRobHub = themePrefs.preset == 'rob_hub';
+    final unreadUserFeedback = ref.watch(unreadUserFeedbackCountProvider).value ?? 0;
+    final unreadAdminFeedback = ref.watch(unreadAdminFeedbackCountProvider).value ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -479,6 +494,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
         actions: [
+          // Mijn Meldingen knop
+          IconButton(
+            tooltip: 'Mijn Meldingen & Status',
+            icon: Badge(
+              isLabelVisible: unreadUserFeedback > 0,
+              label: Text('$unreadUserFeedback'),
+              child: const Icon(Icons.support_agent_outlined),
+            ),
+            onPressed: () => context.go('/my-feedback'),
+          ),
+
           // Feedback knop
           IconButton(
             tooltip: 'Probleem Melden / Feedback',
@@ -506,7 +532,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: OutlinedButton.icon(
                 onPressed: () => context.go('/admin/feedback'),
-                icon: const Icon(Icons.rate_review_outlined, size: 18),
+                icon: Badge(
+                  isLabelVisible: unreadAdminFeedback > 0,
+                  label: Text('$unreadAdminFeedback'),
+                  child: const Icon(Icons.rate_review_outlined, size: 18),
+                ),
                 label: const Text('Feedback Beheer'),
               ),
             ),
@@ -546,6 +576,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               onSelected: (value) async {
                 switch (value) {
+                  case 'my_feedback':
+                    context.go('/my-feedback');
+                    break;
                   case 'feedback':
                     SchrobbeDockFeedback.show(context, appSlug: 'hub_admin');
                     break;
@@ -591,6 +624,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
                 const PopupMenuDivider(),
+                PopupMenuItem<String>(
+                  value: 'my_feedback',
+                  child: Row(
+                    children: [
+                      Badge(
+                        isLabelVisible: unreadUserFeedback > 0,
+                        label: Text('$unreadUserFeedback'),
+                        child: const Icon(Icons.support_agent_outlined, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Mijn Meldingen & Status'),
+                    ],
+                  ),
+                ),
                 const PopupMenuItem<String>(
                   value: 'feedback',
                   child: Row(
@@ -669,7 +716,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   await ThemeCustomizerDialog.show(context);
                   if (mounted) setState(() => _mobileNavIndex = 0);
                 } else if (idx == 2) {
-                  await _showUserActionMenu(context, isSuperAdmin, userEmail);
+                  await _showUserActionMenu(context, isSuperAdmin, userEmail, unreadCount: unreadUserFeedback);
                   if (mounted) setState(() => _mobileNavIndex = 0);
                 }
               },

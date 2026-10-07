@@ -9,6 +9,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/mfa_enroll_screen.dart';
 import 'screens/mfa_verify_screen.dart';
+import 'screens/my_feedback_screen.dart';
 import 'screens/register_screen.dart';
 
 /// Listenable adapter converting a Stream into a Listenable for GoRouter
@@ -144,6 +145,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/dashboard',
         name: 'dashboard',
         builder: (context, state) => const DashboardScreen(),
+      ),
+      GoRoute(
+        path: '/my-feedback',
+        name: 'my_feedback',
+        builder: (context, state) => const MyFeedbackScreen(),
       ),
       GoRoute(
         path: '/admin/invites',

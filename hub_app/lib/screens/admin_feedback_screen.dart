@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers.dart';
 
@@ -58,6 +59,9 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
             stack_trace,
             github_issue_url,
             github_issue_number,
+            has_unread_admin,
+            has_unread_user,
+            last_message_at,
             created_at,
             updated_at,
             apps(id, name, slug, github_repo_owner, github_repo_name),
@@ -880,6 +884,67 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                 ],
               ),
             ],
+
+            const SizedBox(height: 12),
+
+            // Communicatie & Chat met de melder
+            ExpansionTile(
+              initiallyExpanded: report['has_unread_admin'] == true,
+              tilePadding: EdgeInsets.zero,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              leading: Icon(
+                Icons.chat_bubble_outline,
+                color: report['has_unread_admin'] == true
+                    ? Colors.blue.shade700
+                    : theme.colorScheme.primary,
+              ),
+              title: Row(
+                children: [
+                  Text(
+                    'Communicatie & Chat met Melder',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: report['has_unread_admin'] == true
+                          ? Colors.blue.shade700
+                          : theme.colorScheme.primary,
+                    ),
+                  ),
+                  if (report['has_unread_admin'] == true) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade600,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Nieuw bericht',
+                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              children: [
+                Container(
+                  height: 380,
+                  margin: const EdgeInsets.only(top: 8, bottom: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: FeedbackChatWidget(
+                    key: ValueKey(report['id']),
+                    reportId: report['id'] as String,
+                    isAdmin: true,
+                    onReportUpdated: () => _loadInitialData(),
+                  ),
+                ),
+              ],
+            ),
 
             const Divider(height: 24),
 

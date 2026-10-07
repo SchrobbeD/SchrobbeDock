@@ -122,30 +122,28 @@
     - PostgreSQL RLS policy `DELETE ON public.feedback_reports`: Uitsluitend toegestaan voor Platform Admins (`is_admin()`) en `service_role`.
     - Storage policy voor `storage.objects` op `feedback_attachments`: `DELETE` uitsluitend voor admins en `service_role`.
 
-### 4. Communicatie & Statusportaal tussen Melder en Admin (Mijn Feedback & Issue Chat in de Hub)
+### 4. Communicatie & Statusportaal tussen Melder en Admin (Mijn Feedback & Issue Chat in de Hub) [AFGEROND - v1.2.0]
 - **Doel**:
-  - Direct communicatiekanaal in de Hub tussen de **melder (gebruiker)** en de **platformbeheerder (admin)** om gemelde problemen uit te klaren, ontbrekende informatie op te vragen en gebruikers op de hoogte te houden van de voortgang en status.
-- **Functionaliteiten & Architectuur**:
-  - **Gebruikersportaal ("Mijn Meldingen") in de Hub**:
-    - Een toegankelijke weergave voor reguliere gebruikers (bijv. in het profiel of dashboard) met een overzicht van al hun eigen ingezonden feedbackrapporten.
-    - Duidelijke statusindicatie voor de gebruiker: *🔴 Open*, *🟠 In behandeling*, *🟢 Opgelost*, inclusief datum van laatste activiteit.
-  - **Messaging / Chat-draad per Melding (Gebruiker ↔ Admin)**:
-    - **Admin ➔ Gebruiker**: Admin kan vanuit `/admin/feedback` gerichte bijvragen stellen (bijv. "Op welk besturingssysteem gebeurt dit?" of "Kun je de exacte stappen omschrijven?") of een toelichting geven bij een statuswijziging.
-    - **Gebruiker ➔ Admin**: De melder kan direct reageren vanuit zijn overzicht in de Hub om opheldering te geven.
-    - **Notificaties**: Melder (en admin) krijgen in de Hub een visuele melding / badge wanneer er een nieuw bericht is op een openstaand feedback-item.
-  - **Database & RLS (Supabase)**:
-    - Tabel `public.feedback_messages` (of `feedback_comments`):
-      - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
-      - `report_id UUID REFERENCES public.feedback_reports(id) ON DELETE CASCADE`
-      - `sender_id UUID REFERENCES public.profiles(id)`
-      - `sender_role TEXT CHECK (sender_role IN ('user', 'admin'))`
-      - `message TEXT NOT NULL`
-      - `created_at TIMESTAMPTZ DEFAULT NOW()`
-    - RLS Policies:
-      - Melder mag alleen berichten lezen en plaatsen op rapporten waar `user_id = auth.uid()`.
-      - Platform Super Admins mogen alle berichten op alle rapporten lezen en plaatsen.
-  - **Optionele GitHub Sync**:
-    - Berichten kunnen desgewenst ook als audit-comment naar het GitHub Issue worden doorgezet voor developers, maar het primaire doel is de directe relatie tussen gebruiker en admin binnen SchrobbeDock.
+  - Direct, laagdrempelig communicatiekanaal tussen de **melder (gebruiker)** en de **platformbeheerder (admin)** om gemelde problemen uit te klaren, ontbrekende informatie op te vragen en gebruikers op de hoogte te houden van de voortgang en status.
+- **Opgeleverde Architectuur (Package-First v1.2.0)**:
+  - **Shared Package (`packages/schrobbedock_feedback` v1.2.0)**:
+    - `SchrobbeDockFeedback.showPortal(context, {appSlug})`: 1-regel methode voor alle Spoke apps en de Hub om een responsive statusportaal / dialoog te openen.
+    - `FeedbackPortalView`: Herbruikbare full-page / split-view widget voor master-detail navigatie, statusfilters (*Open*, *In Behandeling*, *Opgelost*) en app-filtering.
+    - `FeedbackChatWidget`: Universele realtime chat-component aangedreven door Supabase Realtime channels. Ondersteunt zowel melders- als beheerder-modus.
+    - `SchrobbeDockFeedback.watchUnreadCount({appSlug, isAdmin})`: Realtime stream voor dynamische notificatiebadges in navigatiebalken.
+  - **Database & RLS (`supabase/migrations/20261007140000_feedback_messages_and_chat.sql`)**:
+    - Tabel `public.feedback_messages` met koppeling aan `report_id`, afzenderrollen (`user`, `admin`, `github_dev`), bijlagen en `github_comment_id`.
+    - Triggers voor automatische tracking van `last_message_at` en ongelezen vlaggen (`has_unread_user`, `has_unread_admin`).
+    - Strikte RLS policies en RPC `mark_feedback_as_read`.
+    - Tabellen toegevoegd aan `supabase_realtime` publicatie.
+  - **Tweeweg GitHub Synchronisatie via Edge Functions**:
+    - Nieuwe functie `send-feedback-message`: Verstuurt reacties vanuit de Hub direct als opgemaakte GitHub Issue Comments en bewaart het GitHub comment-ID.
+    - Bijgewerkte webhook `github-webhook`: Vangt `issue_comment` events op GitHub op met automatische loop- en botpreventie, en voegt reacties van externe developers direct in de Hub chat in (`sender_role: 'github_dev'`).
+  - **Hub Integratie (`hub_app`)**:
+    - Route `/my-feedback` met `MyFeedbackScreen`.
+    - Realtime badges op de AppBar ("Mijn Meldingen"), het gebruikersmenu en de Admin Feedback knop.
+    - Inbedding van de chat in de uitklapbare issuekaart in `/admin/feedback`.
+    - Succesweergave van het feedbackdialoogvenster uitgebreid met *"Volg in Mijn Meldingen"*.
 
 ### 5. Versie-indicatie & Build Info in Admin Beheer (Live Versie Validatie)
 - **Doel**: In de live productieomgeving (bijv. op `robbedillen.be`) direct en ondubbelzinnig kunnen verifiëren welke softwareversie, Git commit SHA en builddatum actief is. Dit voorkomt verwarring door agressieve browsercaching van Flutter Web (`flutter.js`, `main.dart.js`, service workers).
