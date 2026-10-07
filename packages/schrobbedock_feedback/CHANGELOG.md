@@ -2,6 +2,16 @@
 
 Alle noemenswaardige wijzigingen aan de `schrobbedock_feedback` package worden gedocumenteerd in dit bestand.
 
+## [1.2.0] - 2026-10-07
+
+### Toegevoegd
+- **Status- & Communicatieportaal ("Mijn Meldingen")**: Gebruikers kunnen via `SchrobbeDockFeedback.showPortal(context)` of de widget `FeedbackPortalView` hun eerdere meldingen inzien en filteren per app of globaal.
+- **Universele Realtime Chat (`FeedbackChatWidget`)**: Tweeweg chatdraad tussen melder en platformbeheerder, aangedreven door Supabase Realtime channel subscriptions.
+- **Tweeweg GitHub Issue Comment Sync**: Chatberichten vanuit de Hub worden automatisch gespiegeld naar GitHub Issue comments, en reacties van GitHub developers worden direct ingeladen in de chat (`sender_role: 'github_dev'`).
+- **Ongelezen Notificatiestream (`watchUnreadCount`)**: Biedt een realtime stream voor dynamische notificatiebadges in navigatiebalken van Spokes en de Hub.
+- **Responsive Split-View**: Master-detail weergave op desktop/tablet en frictieloze navigatie op mobiele schermen.
+
+
 ## [1.1.0] - 2026-10-03
 
 ### Toegevoegd

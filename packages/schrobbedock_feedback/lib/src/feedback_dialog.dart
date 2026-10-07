@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'environment_service.dart';
+import 'feedback_portal_view.dart';
 
 /// Representeert een bijlage (automatische schermopname of door de gebruiker gekozen afbeelding)
 class FeedbackAttachment {
@@ -365,9 +366,50 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
           ),
         ],
         const SizedBox(height: 24),
-        FilledButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Sluiten'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                final isMobile = MediaQuery.of(context).size.width < 700;
+                if (isMobile) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      fullscreenDialog: true,
+                      builder: (ctx) => FeedbackPortalView(
+                        appSlug: widget.appSlug,
+                        onClose: () => Navigator.of(ctx).pop(),
+                      ),
+                    ),
+                  );
+                } else {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => Dialog(
+                      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: SizedBox(
+                        width: 1000,
+                        height: 700,
+                        child: FeedbackPortalView(
+                          appSlug: widget.appSlug,
+                          onClose: () => Navigator.of(ctx).pop(),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.support_agent_outlined, size: 18),
+              label: const Text('Volg in Mijn Meldingen'),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Sluiten'),
+            ),
+          ],
         ),
       ],
     );
