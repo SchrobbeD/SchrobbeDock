@@ -161,7 +161,7 @@
       - Toont versienummer, Git commit met directe GitHub commit link, builddatum en Supabase project-ID/omgeving.
       - **Knop *"Cache Legen & Geforceerd Herladen"***: Voert een harde herlaadactie uit (unregisters eventuele service workers en ververst `window.location`) zodat beheerders met 1 klik garanderen dat ze de nieuwste deployment zien.
 
-### 6. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
+### 6. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR) [AFGEROND]
 - **Doel**: 
   1. Platform Admins kunnen vanuit de Hub gebruikers deactiveren of definitief verwijderen uit het ecosysteem.
   2. Gebruikers kunnen via een profieloverzicht (`/profile`) hun opgeslagen accountgegevens raadplegen, bewerken en zelfstandig hun account definitief laten verwijderen (Right to be Forgotten).
