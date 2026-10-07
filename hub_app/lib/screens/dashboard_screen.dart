@@ -530,14 +530,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           if (isSuperAdmin && !isMobile) ...[
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: OutlinedButton.icon(
-                onPressed: () => context.go('/admin/feedback'),
-                icon: Badge(
-                  isLabelVisible: unreadAdminFeedback > 0,
-                  label: Text('$unreadAdminFeedback'),
-                  child: const Icon(Icons.rate_review_outlined, size: 18),
+              child: Badge(
+                isLabelVisible: unreadAdminFeedback > 0,
+                label: Text('$unreadAdminFeedback'),
+                alignment: const AlignmentDirectional(1.0, -1.0),
+                child: OutlinedButton.icon(
+                  onPressed: () => context.go('/admin/feedback'),
+                  icon: const Icon(Icons.rate_review_outlined, size: 18),
+                  label: const Text('Feedback Beheer'),
                 ),
-                label: const Text('Feedback Beheer'),
               ),
             ),
             Padding(

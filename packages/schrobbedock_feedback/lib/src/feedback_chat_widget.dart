@@ -70,7 +70,6 @@ class _FeedbackChatWidgetState extends State<FeedbackChatWidget> {
         'mark_feedback_as_read',
         params: {'target_report_id': widget.reportId},
       );
-      widget.onReportUpdated?.call();
     } catch (e) {
       debugPrint('[FeedbackChatWidget] mark_feedback_as_read error: $e');
     }

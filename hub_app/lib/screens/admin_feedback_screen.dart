@@ -23,17 +23,22 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
   String _selectedAppFilter = 'all';
   String _selectedCategoryFilter = 'all';
 
+  // Geopende chats per rapport-ID
+  final Set<String> _expandedChatReports = {};
+
   @override
   void initState() {
     super.initState();
     _loadInitialData();
   }
 
-  Future<void> _loadInitialData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _loadInitialData({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final supabase = ref.read(supabaseClientProvider);
@@ -707,6 +712,33 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
                   ),
                 ),
 
+                // Ongelezen Chat Badge
+                if (report['has_unread_admin'] == true) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade600,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.mark_chat_unread_rounded, size: 14, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'Nieuw chatbericht',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const Spacer(),
 
                 // Status Dropdown Selector
@@ -887,63 +919,110 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
 
             const SizedBox(height: 12),
 
-            // Communicatie & Chat met de melder
-            ExpansionTile(
-              initiallyExpanded: report['has_unread_admin'] == true,
-              tilePadding: EdgeInsets.zero,
-              shape: const Border(),
-              collapsedShape: const Border(),
-              leading: Icon(
-                Icons.chat_bubble_outline,
-                color: report['has_unread_admin'] == true
-                    ? Colors.blue.shade700
-                    : theme.colorScheme.primary,
-              ),
-              title: Row(
-                children: [
-                  Text(
-                    'Communicatie & Chat met Melder',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: report['has_unread_admin'] == true
-                          ? Colors.blue.shade700
-                          : theme.colorScheme.primary,
-                    ),
-                  ),
-                  if (report['has_unread_admin'] == true) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade600,
-                        borderRadius: BorderRadius.circular(10),
+            // Communicatie & Chat met de melder (Stabiele inklapbare sectie)
+            Builder(
+              builder: (context) {
+                final reportId = report['id'] as String;
+                final isChatExpanded = _expandedChatReports.contains(reportId) || report['has_unread_admin'] == true;
+                final hasUnread = report['has_unread_admin'] == true;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        setState(() {
+                          if (_expandedChatReports.contains(reportId)) {
+                            _expandedChatReports.remove(reportId);
+                          } else {
+                            _expandedChatReports.add(reportId);
+                            // Markeer direct lokaal als gelezen
+                            report['has_unread_admin'] = false;
+                          }
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isChatExpanded
+                              ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isChatExpanded
+                                ? theme.colorScheme.primary.withValues(alpha: 0.35)
+                                : theme.colorScheme.outline.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.chat_bubble_outline,
+                              size: 20,
+                              color: hasUnread ? Colors.blue.shade700 : theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Communicatie & Chat met Melder',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: hasUnread ? Colors.blue.shade700 : theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            if (hasUnread) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade600,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'Nieuw bericht',
+                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                            Text(
+                              isChatExpanded ? 'Inklappen' : 'Chat Openen',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              isChatExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                              size: 22,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ],
+                        ),
                       ),
-                      child: const Text(
-                        'Nieuw bericht',
-                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
                     ),
+                    if (isChatExpanded) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        height: 380,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: FeedbackChatWidget(
+                          key: ValueKey(reportId),
+                          reportId: reportId,
+                          isAdmin: true,
+                          onReportUpdated: () => _loadInitialData(silent: true),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-              children: [
-                Container(
-                  height: 380,
-                  margin: const EdgeInsets.only(top: 8, bottom: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: FeedbackChatWidget(
-                    key: ValueKey(report['id']),
-                    reportId: report['id'] as String,
-                    isAdmin: true,
-                    onReportUpdated: () => _loadInitialData(),
-                  ),
-                ),
-              ],
+                );
+              },
             ),
 
             const Divider(height: 24),

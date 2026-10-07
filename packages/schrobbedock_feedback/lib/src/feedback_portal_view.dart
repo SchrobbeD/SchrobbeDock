@@ -98,12 +98,16 @@ class _FeedbackPortalViewState extends State<FeedbackPortalView> {
         _allReports = reports;
         _isLoading = false;
 
-        // Als er een geselecteerd rapport was, refresh de instantie
+        // Als er een geselecteerd rapport was, refresh de instantie; anders selecteer de bovenste melding
         if (_selectedReport != null) {
           final idx = reports.indexWhere((r) => r.id == _selectedReport!.id);
           if (idx != -1) {
             _selectedReport = reports[idx];
+          } else if (_filteredReports.isNotEmpty) {
+            _selectedReport = _filteredReports.first;
           }
+        } else if (_filteredReports.isNotEmpty) {
+          _selectedReport = _filteredReports.first;
         }
       });
     } catch (e) {
@@ -326,10 +330,13 @@ class _FeedbackPortalViewState extends State<FeedbackPortalView> {
         ),
         const VerticalDivider(width: 1),
 
-        // Rechterkant: Geselecteerde melding details & chat
+        // Rechterkant: Geselecteerde melding details & chat (standaard de bovenste)
         Expanded(
-          child: _selectedReport == null
-              ? Center(
+          child: Builder(
+            builder: (context) {
+              final activeReport = _selectedReport ?? (reports.isNotEmpty ? reports.first : null);
+              if (activeReport == null) {
+                return Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -340,22 +347,18 @@ class _FeedbackPortalViewState extends State<FeedbackPortalView> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Selecteer een melding',
+                        'Geen meldingen beschikbaar',
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Klik links op een melding om de details en de chat te bekijken.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                        ),
-                      ),
                     ],
                   ),
-                )
-              : _buildReportDetailPane(context, _selectedReport!),
+                );
+              }
+              return _buildReportDetailPane(context, activeReport);
+            },
+          ),
         ),
       ],
     );
