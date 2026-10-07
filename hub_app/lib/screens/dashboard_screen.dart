@@ -577,6 +577,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               onSelected: (value) async {
                 switch (value) {
+                  case 'profile':
+                    context.go('/profile');
+                    break;
                   case 'my_feedback':
                     context.go('/my-feedback');
                     break;
@@ -628,6 +631,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
                 const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_outline, size: 20),
+                      SizedBox(width: 12),
+                      Text('Mijn Profiel & Account'),
+                    ],
+                  ),
+                ),
                 PopupMenuItem<String>(
                   value: 'my_feedback',
                   child: Row(

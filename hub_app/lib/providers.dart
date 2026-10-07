@@ -16,27 +16,35 @@ final authStateChangesProvider = StreamProvider<AuthState>((ref) {
 
 /// Current authenticated user (derived from authStateChangesProvider or current session)
 final currentUserProvider = Provider<User?>((ref) {
-  final authState = ref.watch(authStateChangesProvider);
-  return authState.value?.session?.user ?? Supabase.instance.client.auth.currentUser;
+  try {
+    final authState = ref.watch(authStateChangesProvider);
+    return authState.value?.session?.user ?? Supabase.instance.client.auth.currentUser;
+  } catch (_) {
+    return null;
+  }
 });
 
 /// Asynchronously fetch the active user licenses with joined app details
 final userLicensesProvider = FutureProvider<List<UserLicense>>((ref) async {
-  final user = ref.watch(currentUserProvider);
-  if (user == null) {
+  try {
+    final user = ref.watch(currentUserProvider);
+    if (user == null) {
+      return const [];
+    }
+
+    final client = ref.watch(supabaseClientProvider);
+    final response = await client
+        .from('user_licenses')
+        .select('id, user_id, app_id, tier, role, valid_until, created_at, apps(id, slug, name, is_active)')
+        .eq('user_id', user.id);
+
+    final dataList = response as List<dynamic>;
+    return dataList
+        .map((item) => UserLicense.fromJson(item as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
     return const [];
   }
-
-  final client = ref.watch(supabaseClientProvider);
-  final response = await client
-      .from('user_licenses')
-      .select('id, user_id, app_id, tier, role, valid_until, created_at, apps(id, slug, name, is_active)')
-      .eq('user_id', user.id);
-
-  final dataList = response as List<dynamic>;
-  return dataList
-      .map((item) => UserLicense.fromJson(item as Map<String, dynamic>))
-      .toList();
 });
 
 /// Convenience provider to verify if the user has access to a specific app slug

@@ -172,6 +172,127 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
     }
   }
 
+  Future<void> _confirmAndDeleteUser(String userId, String userEmail, String displayName) async {
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    if (userId == currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.orange,
+          content: Text('Je kunt je eigen administrator-account niet verwijderen via Admin Beheer.'),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        String confirmationText = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isValid = confirmationText.trim() == 'VERWIJDER';
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Account Definitief Verwijderen'),
+                ],
+              ),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Weet je zeker dat je het account van "$userEmail" definitief wilt verwijderen?',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Conform de AVG/GDPR ("Right to be Forgotten") heeft dit de volgende gevolgen over het GEHELE ecosysteem:',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('• Alle gekoppelde login-methodes (Google OAuth, e-mail) worden ontkoppeld.'),
+                    const Text('• Alle actieve licenties voor alle Spoke apps worden per direct ingetrokken.'),
+                    const Text('• Het profiel en alle sessie-tokens worden permanent gewist.'),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Typ "VERWIJDER" in het veld hieronder om te bevestigen:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'VERWIJDER',
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          confirmationText = val;
+                        });
+                      },
+                      onSubmitted: (_) {
+                        if (isValid) Navigator.of(ctx).pop(true);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Annuleren'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: isValid ? () => Navigator.of(ctx).pop(true) : null,
+                  child: const Text('Ja, Definitief Verwijderen'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      await supabase.rpc('delete_user_by_admin', params: {
+        'target_user_id': userId,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green,
+            content: Text('Account voor $userEmail is definitief verwijderd.'),
+          ),
+        );
+        _loadUsers();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red,
+            content: Text('Fout bij verwijderen van account: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _toggleUserRobHubAccess(String userId, String userEmail, bool grant) async {
     try {
       final supabase = ref.read(supabaseClientProvider);
@@ -877,6 +998,8 @@ Uitnodigingscode: $code''';
       );
     }
 
+    final currentUserId = ref.watch(currentUserProvider)?.id;
+
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       itemCount: _users.length,
@@ -986,18 +1109,48 @@ Uitnodigingscode: $code''';
                       ),
                       visualDensity: VisualDensity.compact,
                     ),
-                    const SizedBox(height: 6),
-                    if (hasMfa)
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () => _confirmAndResetMfa(id, email),
-                        icon: const Icon(Icons.restart_alt, size: 16),
-                        label: const Text('Reset 2FA'),
-                      ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        if (hasMfa)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.orange.shade800,
+                              side: BorderSide(color: Colors.orange.shade800),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () => _confirmAndResetMfa(id, email),
+                            icon: const Icon(Icons.restart_alt, size: 16),
+                            label: const Text('Reset 2FA'),
+                          ),
+                        if (id != currentUserId)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () => _confirmAndDeleteUser(id, email, fullName),
+                            icon: const Icon(Icons.delete_outline, size: 16),
+                            label: const Text('Verwijder Account'),
+                          )
+                        else
+                          Tooltip(
+                            message: 'Je kunt je eigen account hier niet verwijderen',
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: null,
+                              icon: const Icon(Icons.person, size: 16),
+                              label: const Text('Eigen Account'),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ],

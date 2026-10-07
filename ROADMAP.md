@@ -164,7 +164,7 @@
 ### 6. Account- & Gebruikersbeheer: Verwijderen door Admin & Self-Service Profiel (AVG/GDPR)
 - **Doel**: 
   1. Platform Admins kunnen vanuit de Hub gebruikers deactiveren of definitief verwijderen uit het ecosysteem.
-  2. Gebruikers kunnen via een profieloverzicht (`/profile`) hun opgeslagen accountgegevens raadplegen en zelfstandig hun account definitief laten verwijderen (Right to be Forgotten).
+  2. Gebruikers kunnen via een profieloverzicht (`/profile`) hun opgeslagen accountgegevens raadplegen, bewerken en zelfstandig hun account definitief laten verwijderen (Right to be Forgotten).
 - **Gevolgen voor Google OAuth bij Verwijdering (Architectuuranalyse)**:
   - **In Supabase**: Bij het verwijderen van een record in `auth.users` worden via PostgreSQL foreign keys met `ON DELETE CASCADE` automatisch het record in `public.profiles`, alle `public.user_licenses`, en de gekoppelde `auth.identities` (de Google OAuth link) definitief gewist. Lopende JWT-sessies worden per direct ongeldig.
   - **Bij Google zelf**: Het Google-account van de gebruiker blijft bij Google ongewijzigd bestaan.
@@ -172,13 +172,27 @@
     - Supabase ziet hem als een **volledig nieuwe bezoeker** (de oude `auth.users.id` bestaat immers niet meer).
     - Er wordt een nieuw, leeg profiel aangemaakt.
     - Door onze **Zero-Trust architectuur** krijgt het account **0 licenties**. De gebruiker landt direct op de *"Geen Actieve Licenties Gevonden"* fallback kaart en heeft GEEN toegang tot Hub Beheer of Spokes, tenzij een beheerder hem opnieuw een geldige uitnodigingscode verstrekt.
+- **Ecosysteem-brede Verwijderingswaarschuwing (Single Account Impact)**:
+  - **Duidelijke waarschuwing**: Het dialoogvenster benadrukt dat dit het account wist over het **GEHELE** SchrobbeDock-ecosysteem (niet slechts één Spoke).
+  - **Dynamische App-oplijsting**: Toont een visuele lijst van alle applicaties waar de gebruiker momenteel toegang toe verliest (Hub, Dock Planner, etc.).
+  - **Google Consent Revocation**: Bevat een directe link naar [Google Gekoppelde Apps](https://myaccount.google.com/connections) zodat de gebruiker ook aan Google-zijde de app-toestemming kan intrekken.
+  - **Strikte bevestiging**: Verplicht overtypen van `'VERWIJDER'` in het invoerveld.
 - **Architectuur (Hub & Spoke)**:
   - **Database (Supabase)**:
-    - RPC `delete_user_by_admin(target_user_id UUID)`: Uitsluitend uitvoerbaar door `super_admin` van `hub_admin`. Verwijdert de gebruiker via `supabase_auth_admin` cascade.
-    - RPC `delete_own_account()`: Uitvoerbaar door de ingelogde gebruiker zelf (`auth.uid() = id`), met optionele soft-delete audit tracking.
+    - RPC `delete_user_by_admin(target_user_id UUID)`: Uitsluitend uitvoerbaar door `super_admin` van `hub_admin`. Beschermt tegen self-lockout en garandeert minimaal 1 overblijvende admin.
+    - RPC `delete_own_account()`: Uitvoerbaar door de ingelogde gebruiker zelf (`auth.uid() = id`), met bescherming dat de laatste admin zijn rechten eerst moet overdragen.
   - **Frontend / Clients**:
-    - **Admin Hub (`/admin/invites` tab Gebruikers)**: Rode actieknop *"Gebruiker Verwijderen"* met bevestigingsdialoog ("Typ de naam over om te bevestigen").
-    - **Self-Service Profiel (`/profile`)**: Overzicht van opgeslagen gegevens (naam, e-mail, telefoon, adres, gekoppelde login provider zoals Google), plus een gevarenzone met *"Account Definitief Verwijderen"*.
+    - **Admin Hub (`/admin/invites` tab Gebruikers & 2FA)**: Rode actieknop *"Account Verwijderen"* met strikte `'VERWIJDER'` modal.
+    - **Self-Service Profiel (`/profile`)**: Formulier voor persoonsgegevens (naam, telefoon, adres), gekoppelde login provider, 2FA status, licentie-overzicht en Gevarenzone voor accountverwijdering.
+    - **Post-delete UX**: Directe afmelding via `signOut()`, opruimen van lokale opslag en redirect naar `/login` met bevestiging.
+
+### 6b. Google Cloud OAuth Consent Screen & Compliance (Productie Status)
+- **Doel**: Voldoen aan alle vereisten van het Google API Services User Data Policy om de Google OAuth client van status *"Testing"* (100 gebruikerslimiet) officieel naar *"In Production"* te brengen.
+- **Vereisten & Actiepunten**:
+  1. **Publieke Privacy Policy URL (`/privacy`)**: Webpagina op `robbedillen.be/privacy` die transparant beschrijft welke basisgegevens (naam, e-mail) worden verwerkt en hoe het recht op vergetelheid wordt uitgevoerd.
+  2. **Publieke Terms of Service (`/terms`)**: Algemene voorwaarden URL voor het platform.
+  3. **Geverifieerd Domein (Google Search Console)**: Verificatie van eigenaarschap van `robbedillen.be` in Google Cloud Console.
+  4. **OAuth Status Publiceren**: Overschakelen van *Testing* naar *In Production* in Google Cloud Console zodat alle genodigden via Google kunnen inloggen zonder handmatige testuser-toevoeging.
 
 ### 7. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
 - **README.md (Repository Overview & Setup)**:
