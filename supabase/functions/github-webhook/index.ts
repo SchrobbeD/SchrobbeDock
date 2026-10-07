@@ -78,7 +78,7 @@ serve(async (req) => {
       });
     }
 
-    if (eventType !== "issues") {
+    if (eventType !== "issues" && eventType !== "issue_comment") {
       return new Response(
         JSON.stringify({ message: `Ignored event type: ${eventType}` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -99,7 +99,7 @@ serve(async (req) => {
     }
 
     const issueNumber = issue.number;
-    console.log(`[GitHub Webhook] Ontvangen event: issues.${action} voor #${issueNumber} in ${owner}/${repo}`);
+    console.log(`[GitHub Webhook] Ontvangen event: ${eventType}.${action} voor #${issueNumber} in ${owner}/${repo}`);
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -125,7 +125,76 @@ serve(async (req) => {
 
     const reportId = matchingReport.id;
 
-    // 4. Actie: deleted (Tweeweg verwijdering vanuit GitHub UI of API)
+    // 4. Afhandeling issue_comment (reactie van developer op GitHub)
+    if (eventType === "issue_comment") {
+      if (action !== "created") {
+        return new Response(
+          JSON.stringify({ message: `Ignored comment action: ${action}` }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const comment = payload.comment;
+      if (!comment || !comment.id) {
+        return new Response(JSON.stringify({ error: "Missing comment data" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Loop-preventie A: Bestaat dit commentaar al in feedback_messages?
+      const { data: existingMsg } = await adminClient
+        .from("feedback_messages")
+        .select("id")
+        .eq("github_comment_id", comment.id)
+        .maybeSingle();
+
+      if (existingMsg) {
+        console.log(`[GitHub Webhook] Comment ${comment.id} is al verwerkt (loop-preventie).`);
+        return new Response(JSON.stringify({ message: "Comment already recorded" }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Loop-preventie B: Commentaar afkomstig van SchrobbeDock Hub bot?
+      if (comment.body?.startsWith("**[SchrobbeDock Hub -")) {
+        console.log(`[GitHub Webhook] Comment ${comment.id} is afkomstig van SchrobbeDock Hub bot. Genegeerd.`);
+        return new Response(JSON.stringify({ message: "Bot comment ignored" }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Sla externe GitHub developer comment op in feedback_messages
+      const commenterName = comment.user?.login || "GitHub Developer";
+      const { error: msgInsertErr } = await adminClient
+        .from("feedback_messages")
+        .insert({
+          report_id: reportId,
+          sender_id: null,
+          sender_role: "github_dev",
+          sender_name: commenterName,
+          message: comment.body || "",
+          github_comment_id: comment.id,
+        });
+
+      if (msgInsertErr) {
+        console.error(`[GitHub Webhook] Fout bij opslaan GitHub comment ${comment.id}:`, msgInsertErr);
+        return new Response(JSON.stringify({ error: "Failed to store comment", details: msgInsertErr }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      console.log(`[GitHub Webhook] Externe comment ${comment.id} van ${commenterName} opgeslagen voor rapport ${reportId}`);
+      return new Response(
+        JSON.stringify({ success: true, message: "Comment processed successfully", report_id: reportId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 5. Actie: deleted (Tweeweg verwijdering vanuit GitHub UI of API)
     if (action === "deleted") {
       console.log(`[GitHub Webhook] Issue #${issueNumber} verwijderd op GitHub. Opschonen rapport ${reportId}...`);
 
