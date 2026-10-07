@@ -145,7 +145,7 @@
     - Inbedding van de chat in de uitklapbare issuekaart in `/admin/feedback`.
     - Succesweergave van het feedbackdialoogvenster uitgebreid met *"Volg in Mijn Meldingen"*.
 
-### 5. Versie-indicatie & Build Info in Admin Beheer (Live Versie Validatie)
+### 5. Versie-indicatie & Build Info in Admin Beheer (Live Versie Validatie) [AFGEROND]
 - **Doel**: In de live productieomgeving (bijv. op `robbedillen.be`) direct en ondubbelzinnig kunnen verifiëren welke softwareversie, Git commit SHA en builddatum actief is. Dit voorkomt verwarring door agressieve browsercaching van Flutter Web (`flutter.js`, `main.dart.js`, service workers).
 - **Architectuur & Technische Implementatie**:
   - **CI/CD Injectie (`.github/workflows/deploy_web.yml`)**:

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers.dart';
+import '../widgets/app_version_badge.dart';
 
 class AdminInvitesScreen extends ConsumerStatefulWidget {
   const AdminInvitesScreen({super.key});
@@ -599,6 +600,7 @@ Uitnodigingscode: $code''';
           ],
         ),
         actions: [
+          const AppVersionBadge(),
           IconButton(
             tooltip: 'Feedback & Meldingen',
             icon: const Icon(Icons.rate_review_outlined),

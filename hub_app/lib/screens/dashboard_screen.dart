@@ -6,6 +6,7 @@ import '../models/user_license.dart';
 import '../providers.dart';
 import '../theme/schrobbedock_theme.dart';
 import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
+import '../widgets/system_info_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -595,6 +596,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   case 'admin_feedback':
                     context.go('/admin/feedback');
                     break;
+                  case 'system_info':
+                    SystemInfoDialog.show(context);
+                    break;
                   case 'logout':
                     final supabase = ref.read(supabaseClientProvider);
                     await supabase.auth.signOut();
@@ -688,6 +692,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         Icon(Icons.rate_review_outlined, size: 20),
                         SizedBox(width: 12),
                         Text('Feedback & Meldingen'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'system_info',
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 20),
+                        SizedBox(width: 12),
+                        Text('Systeem- & Versie-info'),
                       ],
                     ),
                   ),

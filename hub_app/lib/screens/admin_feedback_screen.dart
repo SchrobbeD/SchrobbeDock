@@ -5,6 +5,7 @@ import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers.dart';
+import '../widgets/app_version_badge.dart';
 
 class AdminFeedbackScreen extends ConsumerStatefulWidget {
   const AdminFeedbackScreen({super.key});
@@ -546,6 +547,7 @@ class _AdminFeedbackScreenState extends ConsumerState<AdminFeedbackScreen> {
           onPressed: () => context.go('/dashboard'),
         ),
         actions: [
+          const AppVersionBadge(),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Vernieuwen',
