@@ -186,13 +186,20 @@
     - **Self-Service Profiel (`/profile`)**: Formulier voor persoonsgegevens (naam, telefoon, adres), gekoppelde login provider, 2FA status, licentie-overzicht en Gevarenzone voor accountverwijdering.
     - **Post-delete UX**: Directe afmelding via `signOut()`, opruimen van lokale opslag en redirect naar `/login` met bevestiging.
 
-### 6b. Google Cloud OAuth Consent Screen & Compliance (Productie Status)
+### 6b. Google Cloud OAuth Consent Screen & Compliance (Productie Status) [FASE 1 AFGEROND]
 - **Doel**: Voldoen aan alle vereisten van het Google API Services User Data Policy om de Google OAuth client van status *"Testing"* (100 gebruikerslimiet) officieel naar *"In Production"* te brengen.
-- **Vereisten & Actiepunten**:
-  1. **Publieke Privacy Policy URL (`/privacy`)**: Webpagina op `robbedillen.be/privacy` die transparant beschrijft welke basisgegevens (naam, e-mail) worden verwerkt en hoe het recht op vergetelheid wordt uitgevoerd.
-  2. **Publieke Terms of Service (`/terms`)**: Algemene voorwaarden URL voor het platform.
-  3. **Geverifieerd Domein (Google Search Console)**: Verificatie van eigenaarschap van `robbedillen.be` in Google Cloud Console.
-  4. **OAuth Status Publiceren**: Overschakelen van *Testing* naar *In Production* in Google Cloud Console zodat alle genodigden via Google kunnen inloggen zonder handmatige testuser-toevoeging.
+- **Status & Actiepunten**:
+  1. **Publieke Privacy Policy URL (`/privacy`) [AFGEROND]**:
+     - `PrivacyPolicyScreen` in `hub_app/lib/screens/privacy_policy_screen.dart`.
+     - Voldoet aan AVG/GDPR en bevat de verplichte Google API Limited Use Disclosure.
+     - Publiek toegankelijk zonder login in `router.dart`.
+  2. **Publieke Terms of Service (`/terms`) [AFGEROND]**:
+     - `TermsOfServiceScreen` in `hub_app/lib/screens/terms_of_service_screen.dart`.
+     - Publiek toegankelijk zonder login in `router.dart`.
+     - Links toegevoegd onderaan Login (`/login`) en Registratie (`/register`).
+     - Gedekt door 21/21 geautomatiseerde tests.
+  3. **Geverifieerd Domein (Google Search Console) [OPEN - FASE 2]**: Verificatie van eigenaarschap van `robbedillen.be` via DNS TXT-record in one.com beheerpaneel.
+  4. **OAuth Status Publiceren (Google Cloud Console) [OPEN - FASE 3]**: URLs invullen en overschakelen van *Testing* naar *In Production* in Google Cloud Console.
 
 ### 7. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
 - **README.md (Repository Overview & Setup)**:

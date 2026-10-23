@@ -297,6 +297,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         onPressed: () => context.go('/register'),
                         child: const Text('Heb je een uitnodigingscode? Registreer hier'),
                       ),
+                      const SizedBox(height: 12),
+
+                      // Juridische compliance links (Google OAuth vereiste)
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            'Door in te loggen ga je akkoord met onze ',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => context.push('/terms'),
+                            child: Text(
+                              'Voorwaarden',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            ' en ons ',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => context.push('/privacy'),
+                            child: Text(
+                              'Privacybeleid',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

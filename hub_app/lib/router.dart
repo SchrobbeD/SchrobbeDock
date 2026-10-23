@@ -10,8 +10,10 @@ import 'screens/login_screen.dart';
 import 'screens/mfa_enroll_screen.dart';
 import 'screens/mfa_verify_screen.dart';
 import 'screens/my_feedback_screen.dart';
+import 'screens/privacy_policy_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/terms_of_service_screen.dart';
 
 /// Listenable adapter converting a Stream into a Listenable for GoRouter
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -50,7 +52,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isLoginRoute = path == '/login';
       final isRegisterRoute = path.startsWith('/register');
-      final isPublicRoute = isLoginRoute || isRegisterRoute;
+      final isLegalRoute = path == '/privacy' || path == '/terms';
+      final isPublicRoute = isLoginRoute || isRegisterRoute || isLegalRoute;
 
       // 1. Niet ingelogd
       if (!isAuthenticated) {
@@ -99,9 +102,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Geval C: Volledig geauthenticeerd, vrijgestelde Google gebruiker of seeded testgebruiker
       if (currentLevel == 'aal2' || isGoogleUser || isSeededUser) {
-        // Indien op root, auth of voltooide MFA schermen, stuur door naar dashboard
+        // Indien op root, login/registratie of voltooide MFA schermen, stuur door naar dashboard
+        // Let op: isLegalRoute (/privacy, /terms) mag zowel ingelogd als niet-ingelogd bekeken worden
         if (path == '/' ||
-            isPublicRoute ||
+            isLoginRoute ||
+            isRegisterRoute ||
             (path.startsWith('/mfa') && (currentLevel == 'aal2' || isSeededUser))) {
           return '/dashboard';
         }
@@ -166,6 +171,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/feedback',
         name: 'admin_feedback',
         builder: (context, state) => const AdminFeedbackScreen(),
+      ),
+      GoRoute(
+        path: '/privacy',
+        name: 'privacy',
+        builder: (context, state) => const PrivacyPolicyScreen(),
+      ),
+      GoRoute(
+        path: '/terms',
+        name: 'terms',
+        builder: (context, state) => const TermsOfServiceScreen(),
       ),
     ],
   );
