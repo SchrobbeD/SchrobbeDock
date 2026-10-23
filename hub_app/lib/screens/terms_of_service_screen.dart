@@ -120,7 +120,14 @@ class TermsOfServiceScreen extends StatelessWidget {
 
               _buildSection(
                 theme: theme,
-                title: '7. Toepasselijk Recht',
+                title: '7. De Informele Pintjesclausule (Beerware)',
+                content:
+                    'Hoewel de toegang tot SchrobbeDock kosteloos wordt verstrekt binnen de grenzen van uw actieve licentie, verklaart de gebruiker zich er moreel en informeel mee akkoord om de beheerder (Robbe) minstens één fris pintje (of gelijkwaardige consumptie) per maand te trakteren bij ontmoeting op café of kantoor, als blijk van waardering voor het onderhoud en de serveruren. Deze verplichting is uiteraard van gemoedelijke aard, doch ten zeerste aanbevolen voor een vlotte werking van het platform.',
+              ),
+
+              _buildSection(
+                theme: theme,
+                title: '8. Toepasselijk Recht',
                 content:
                     'Op deze voorwaarden en alle geschillen die voortvloeien uit of verband houden met het gebruik van SchrobbeDock is uitsluitend het Belgisch recht van toepassing.',
               ),
