@@ -1,4 +1,4 @@
-# SchrobbeDock Spoke Generator - Maakt met 1 commando een nieuwe Spoke app aan.
+# SchrobbeDock Spoke Generator - Maakt met 1 commando een nieuwe Flutter Spoke app aan.
 
 param(
     [Parameter(Mandatory = $true, Position = 0)]
@@ -6,10 +6,6 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string]$Slug,
-
-    [Parameter(Mandatory = $false)]
-    [ValidateSet("flutter", "web")]
-    [string]$Type = "flutter",
 
     [Parameter(Mandatory = $false)]
     [string]$Description,
@@ -38,11 +34,10 @@ $ParentDir = (Get-Item $RepoRoot).Parent.FullName
 $TargetDir = Join-Path $ParentDir $Slug
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "SchrobbeDock Spoke App Generator" -ForegroundColor Yellow
+Write-Host "SchrobbeDock Flutter Spoke Generator" -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "• App Naam     : $Name"
 Write-Host "• Slug         : $Slug"
-Write-Host "• Type         : $Type"
 Write-Host "• Doelmap      : $TargetDir"
 Write-Host "• Launch URL   : $LaunchUrl"
 Write-Host "==========================================================" -ForegroundColor Cyan
@@ -52,15 +47,15 @@ if (Test-Path $TargetDir) {
     exit 1
 }
 
-# 2. Project Initialisatie per Type
-if ($Type -eq "flutter") {
-    Write-Host "`n[1/4] Flutter project aanmaken in '$TargetDir'..." -ForegroundColor Green
-    flutter create --org be.robbedillen --platforms web,windows,android --project-name $Slug $TargetDir
+# 2. Flutter Project Initialisatie
+Write-Host "`n[1/5] Flutter multi-platform project aanmaken..." -ForegroundColor Green
+flutter create --org be.robbedillen --platforms web,windows,android --project-name $Slug $TargetDir
 
-    Write-Host "[2/4] pubspec.yaml configureren met SchrobbeDock packages en dependencies..." -ForegroundColor Green
-    $PubspecPath = Join-Path $TargetDir "pubspec.yaml"
-    
-    $PubspecTemplate = @'
+# 3. pubspec.yaml Configureren met SchrobbeDock Packages
+Write-Host "[2/5] pubspec.yaml configureren met centrale packages en dependencies..." -ForegroundColor Green
+$PubspecPath = Join-Path $TargetDir "pubspec.yaml"
+
+$PubspecTemplate = @'
 name: __SLUG__
 description: "__DESCRIPTION__"
 publish_to: 'none'
@@ -98,13 +93,14 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 '@
-    $PubspecContent = $PubspecTemplate.Replace('__SLUG__', $Slug).Replace('__DESCRIPTION__', $Description)
-    Set-Content -Path $PubspecPath -Value $PubspecContent -Encoding UTF8
+$PubspecContent = $PubspecTemplate.Replace('__SLUG__', $Slug).Replace('__DESCRIPTION__', $Description)
+Set-Content -Path $PubspecPath -Value $PubspecContent -Encoding UTF8
 
-    Write-Host "[3/4] Schermen en SSO-guards genereren (lib/main.dart)..." -ForegroundColor Green
-    $MainDartPath = Join-Path $TargetDir "lib\main.dart"
-    
-    $MainDartTemplate = @'
+# 4. Schermen en SSO-guards genereren (lib/main.dart)
+Write-Host "[3/5] Schermen, thema en SSO-guards genereren (lib/main.dart)..." -ForegroundColor Green
+$MainDartPath = Join-Path $TargetDir "lib\main.dart"
+
+$MainDartTemplate = @'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -296,143 +292,83 @@ class LoginRequiredScreen extends StatelessWidget {
   }
 }
 '@
-    $MainDartContent = $MainDartTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
-    Set-Content -Path $MainDartPath -Value $MainDartContent -Encoding UTF8
+$MainDartContent = $MainDartTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
+Set-Content -Path $MainDartPath -Value $MainDartContent -Encoding UTF8
 
-} elseif ($Type -eq "web") {
-    Write-Host "`n[1/4] Web Applicatie project aanmaken in '$TargetDir'..." -ForegroundColor Green
-    New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
-    
-    # Package.json
-    $PackageJsonTemplate = @'
-{
-  "name": "__SLUG__",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.45.0"
-  },
-  "devDependencies": {
-    "vite": "^5.4.0"
-  }
-}
+# 5. Functionele Specificatie & Antigravity AI-regels Aanmaken
+Write-Host "[4/5] Functionele specificatie & Antigravity regels aanmaken..." -ForegroundColor Green
+$DocsDir = Join-Path $TargetDir "docs"
+New-Item -ItemType Directory -Path $DocsDir -Force | Out-Null
+
+$SpecTemplate = @'
+# __NAME__ - Functionele Specificatie & PoC Briefing
+
+> **Herkomst**: Uitgewerkt via het Gemini Notebook (SchrobbeDock Product Owner)  
+> **Status**: Concept / Proof-of-Concept (PoC)  
+> **Ecosysteem**: SchrobbeDock Spoke App (`__SLUG__`)
+
+---
+
+## 1. Doel van de PoC & Probleemstelling
+<!-- Plak hier uit Gemini wat het kernprobleem is dat deze app oplost -->
+- **Doel**: 
+- **Doelgroep**: 
+
+---
+
+## 2. Functionele Scope (MVP / PoC)
+<!-- Plak hier de concrete must-have functionaliteiten en de minimale user journey -->
+### Must-Haves voor de eerste werkende versie:
+1. 
+2. 
+3. 
+
+### Bewust buiten scope voor PoC:
+- 
+
+---
+
+## 3. Schermen & Gebruikerservaring (UX)
+<!-- Plak hier welke schermen en flows de gebruiker doorloopt -->
+1. **Hoofdscherm (Dashboard)**: 
+2. **Detail / Bewerk-flow**: 
+
+---
+
+## 4. Rollen & Permissies (Licentieniveau)
+- **Gebruiker (`user`)**: 
+- **Beheerder (`admin`)**: 
 '@
-    Set-Content -Path (Join-Path $TargetDir "package.json") -Value ($PackageJsonTemplate.Replace('__SLUG__', $Slug)) -Encoding UTF8
+$SpecContent = $SpecTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
+Set-Content -Path (Join-Path $DocsDir "SPECIFICATION.md") -Value $SpecContent -Encoding UTF8
 
-    # Index.html met SchrobbeDock Amber styling
-    $IndexHtmlTemplate = @'
-<!DOCTYPE html>
-<html lang="nl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>__NAME__ - SchrobbeDock</title>
-    <style>
-      :root {
-        --color-primary: #D97706; /* Warm Amber */
-        --color-bg: #0F172A;      /* Deep Slate */
-        --color-surface: #1E293B;
-        --color-text: #F8FAFC;
-      }
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background-color: var(--color-bg);
-        color: var(--color-text);
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-      }
-      header {
-        background: var(--color-surface);
-        padding: 16px 24px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid #334155;
-      }
-      .brand { font-weight: bold; font-size: 1.25rem; color: var(--color-primary); }
-      main { flex: 1; padding: 40px 24px; max-width: 960px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-      .card { background: var(--color-surface); border-radius: 12px; padding: 32px; border: 1px solid #334155; text-align: center; }
-      .btn { background: var(--color-primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="brand">__NAME__</div>
-      <div id="user-status">Laden...</div>
-    </header>
-    <main>
-      <div class="card" id="app-content">
-        <h2>Welkom in __NAME__</h2>
-        <p>__DESCRIPTION__</p>
-      </div>
-    </main>
-    <script type="module" src="/main.js"></script>
-  </body>
-</html>
-'@
-    $IndexHtml = $IndexHtmlTemplate.Replace('__NAME__', $Name).Replace('__DESCRIPTION__', $Description)
-    Set-Content -Path (Join-Path $TargetDir "index.html") -Value $IndexHtml -Encoding UTF8
-
-    # main.js met Supabase auth check
-    $MainJsTemplate = @'
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://supabase.robbedillen.be';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'ANON_KEY';
-export const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function checkAuth() {
-  const { data: { session } } = await supabase.auth.getSession();
-  const statusEl = document.getElementById('user-status');
-  const contentEl = document.getElementById('app-content');
-
-  if (!session) {
-    statusEl.innerHTML = '<a class="btn" href="https://robbedillen.be/#/login">Inloggen via Hub</a>';
-    contentEl.innerHTML = '<h2>Inloggen Vereist</h2><p>Je moet ingelogd zijn via SchrobbeDock om deze app te openen.</p>';
-    return;
-  }
-
-  statusEl.innerText = session.user.email;
-}
-
-checkAuth();
-'@
-    Set-Content -Path (Join-Path $TargetDir "main.js") -Value $MainJsTemplate -Encoding UTF8
-}
-
-# 3. Antigravity AI-regels configureren in de nieuwe Spoke
-Write-Host "[3/4] Antigravity AI-regels instellen in '$TargetDir\.agents\rules\role.md'..." -ForegroundColor Green
+# Antigravity Rules (.agents/rules/role.md)
 $AgentDir = Join-Path $TargetDir ".agents\rules"
 New-Item -ItemType Directory -Path $AgentDir -Force | Out-Null
 
 $RoleTemplate = @'
 # Rol & Doel: Spoke App Developer (__NAME__)
-Je bent een Senior Developer voor de Spoke applicatie '__NAME__' (__TYPE__).
+Je bent een Senior Flutter Developer voor de Spoke applicatie '__NAME__'.
 
-### Context & Ecosysteem:
+### VERPLICHTE STARTSTAP BIJ ELKE SESSIE:
+Lees ALTIJD eerst het bestand `docs/SPECIFICATION.md`!
+Dit document bevat de exacte functionele omschrijving, user stories en PoC-doelen die zijn uitgewerkt in het Gemini Notebook. Bouw uitsluitend functionaliteiten die passen binnen deze functionele specificatie.
+
+### Context & Ecosysteem Regels:
 - Deze applicatie maakt integraal deel uit van het **SchrobbeDock Ecosysteem**.
 - **Authenticatie & Single Account**: De gebruiker logt in via de centrale Hub (Supabase Auth). Bouw GEEN eigen inlog- of registratieschermen.
 - **Licenties & RLS**: Data-toegang wordt afgedwongen via de centrale tabel `public.licenses` voor app_slug: '__SLUG__'.
-- **Thema & Styling**: Hanteer de officiële SchrobbeDock kleuren (Warm Amber #D97706 & Deep Slate #0F172A).
-- **Feedback & Probleemmelder**: Integreer altijd de centrale feedback-functionaliteit met appSlug: '__SLUG__'.
+- **Thema & Styling**: Gebruik altijd de geïmporteerde package `schrobbedock_theme` (Warm Amber & Deep Slate).
+- **Feedback**: Gebruik de centrale package `schrobbedock_feedback` met appSlug: '__SLUG__'.
+- **Database**: Tabellen horen in het PostgreSQL schema `app___SLUG__`.
 '@
-$RoleContent = $RoleTemplate.Replace('__NAME__', $Name).Replace('__TYPE__', $Type).Replace('__SLUG__', $Slug)
+$RoleContent = $RoleTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path (Join-Path $AgentDir "role.md") -Value $RoleContent -Encoding UTF8
 
-# 4. Automatisch Supabase Registratiemigratie Aanmaken in SchrobbeDock
-Write-Host "[4/4] Supabase registratiemigratie genereren in SchrobbeDock..." -ForegroundColor Green
+# 6. Automatisch Supabase Registratiemigratie Aanmaken in SchrobbeDock
+Write-Host "[5/5] Supabase registratiemigratie genereren in SchrobbeDock..." -ForegroundColor Green
 $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddHHmmss")
 $MigrationFile = Join-Path $RepoRoot "supabase\migrations\${Timestamp}_register_${Slug}.sql"
-
-$IconName = if ($Type -eq "flutter") { "widgets" } else { "language" }
 
 $MigrationTemplate = @'
 -- ============================================================================
@@ -454,7 +390,7 @@ INSERT INTO public.apps (
     '__SLUG__',
     '__DESCRIPTION__',
     '__LAUNCH_URL__',
-    '__ICON_NAME__',
+    'widgets',
     'SchrobbeD',
     '__SLUG__',
     true
@@ -481,18 +417,17 @@ $MigrationSql = $MigrationTemplate.
     Replace('__NAME__', $Name).
     Replace('__SLUG__', $Slug).
     Replace('__DESCRIPTION__', $Description).
-    Replace('__LAUNCH_URL__', $LaunchUrl).
-    Replace('__ICON_NAME__', $IconName)
+    Replace('__LAUNCH_URL__', $LaunchUrl)
 
 Set-Content -Path $MigrationFile -Value $MigrationSql -Encoding UTF8
 
 Write-Host "`n==========================================================" -ForegroundColor Cyan
-Write-Host "Spoke App '$Name' is succesvol gegenereerd!" -ForegroundColor Green
+Write-Host "Flutter Spoke App '$Name' is succesvol gegenereerd!" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "• App Locatie : $TargetDir"
+Write-Host "• Specificatie: $TargetDir\docs\SPECIFICATION.md"
 Write-Host "• Migratie    : $MigrationFile"
 Write-Host "`nVolgende stappen:"
-Write-Host "1. Open een nieuwe Antigravity sessie in: $TargetDir"
-Write-Host "2. Voer migraties uit in SchrobbeDock (npx supabase migration up)"
-Write-Host "3. Start met bouwen van de features!"
+Write-Host "1. Plak je output uit het Gemini Notebook in: $TargetDir\docs\SPECIFICATION.md"
+Write-Host "2. Open de nieuwe map in Antigravity om direct te bouwen!"
 Write-Host "==========================================================" -ForegroundColor Cyan
