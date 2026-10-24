@@ -58,7 +58,7 @@ void main() {
       expect(find.text('1. Toepasselijkheid'), findsOneWidget);
       expect(find.text('2. Toegang, Accounts & Uitnodigingen'), findsOneWidget);
       expect(find.text('3. Aanvaardbaar Gebruik'), findsOneWidget);
-      expect(find.text('7. De Informele Pintjesclausule (Beerware)'), findsOneWidget);
+      expect(find.text('7. De Informele Pintjesclausule'), findsOneWidget);
       expect(find.text('8. Toepasselijk Recht'), findsOneWidget);
       expect(find.text('Begrepen & Terugkeren'), findsOneWidget);
     });
