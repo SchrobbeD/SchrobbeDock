@@ -21,8 +21,8 @@ $ErrorActionPreference = "Stop"
 
 # 1. Bepaal Slug en Mappen
 if ([string]::IsNullOrWhiteSpace($Slug)) {
-    # Converteer CamelCase ("WinterRaket") naar snake_case ("winter_raket")
-    $Slug = ($Name -replace '([a-z0-9])([A-Z])', '$1_$2').ToLower().Trim() -replace '[^a-z0-9]+', '_' -replace '^_+|_+$', ''
+    # Converteer CamelCase ("WinterRaket") naar snake_case ("winter_raket") via case-sensitive -creplace
+    $Slug = ($Name -creplace '([a-z0-9])([A-Z])', '$1_$2').ToLower().Trim() -replace '[^a-z0-9]+', '_' -replace '^_+|_+$', ''
 }
 
 if ([string]::IsNullOrWhiteSpace($Description)) {
@@ -48,6 +48,14 @@ Write-Host "• Launch URL   : $LaunchUrl"
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 if (Test-Path $TargetDir) {
+    # Zorg dat de casing op Windows NTFS exact overeenkomt met $Name
+    $actualDir = Get-Item $TargetDir
+    if ($actualDir.Name -cne $Name) {
+        $tempDirName = "${Name}_temp_casing"
+        Rename-Item -Path $actualDir.FullName -NewName $tempDirName -ErrorAction SilentlyContinue
+        Rename-Item -Path (Join-Path $ParentDir $tempDirName) -NewName $Name -ErrorAction SilentlyContinue
+    }
+
     $existingItems = Get-ChildItem -Path $TargetDir -Force
     if ($existingItems.Count -gt 0 -and -not $Force) {
         Write-Error "Map '$TargetDir' bestaat al en is niet leeg! Gebruik -Force om te overschrijven of kies een andere naam."
