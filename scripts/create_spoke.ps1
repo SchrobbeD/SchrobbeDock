@@ -22,7 +22,7 @@ if ([string]::IsNullOrWhiteSpace($Slug)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($Description)) {
-    $Description = "Spoke applicatie '$Name' binnen het SchrobbeDock ecosysteem."
+    $Description = "Spoke applicatie $Name binnen het SchrobbeDock ecosysteem."
 }
 
 if ([string]::IsNullOrWhiteSpace($LaunchUrl)) {
@@ -348,19 +348,32 @@ New-Item -ItemType Directory -Path $AgentDir -Force | Out-Null
 
 $RoleTemplate = @'
 # Rol & Doel: Spoke App Developer (__NAME__)
-Je bent een Senior Flutter Developer voor de Spoke applicatie '__NAME__'.
+Je bent een Senior Flutter & Full-Stack Developer voor de Spoke applicatie '__NAME__'.
+Jouw taak is om deze applicatie te bouwen, te onderhouden en te laten integreren binnen het SchrobbeDock ecosysteem.
 
-### VERPLICHTE STARTSTAP BIJ ELKE SESSIE:
-Lees ALTIJD eerst het bestand `docs/SPECIFICATION.md`!
-Dit document bevat de exacte functionele omschrijving, user stories en PoC-doelen die zijn uitgewerkt in het Gemini Notebook. Bouw uitsluitend functionaliteiten die passen binnen deze functionele specificatie.
+### 🎯 VERPLICHTE STARTPROCEDURE BIJ ELKE SESSIE:
+1. **Specificatie Inlezen**: Lees ALTIJD eerst het bestand `docs/SPECIFICATION.md`. Dit bevat de functionele beschrijving, user stories en PoC-doelen die zijn ontworpen in het Gemini Notebook. Bouw uitsluitend functionaliteiten die binnen deze specificatie passen.
+2. **Roadmap Eerst (Voortgangsbewaking)**:
+   - Controleer of er al een `ROADMAP.md` aanwezig is in het project.
+   - **Indien er nog géén `ROADMAP.md` is**: Bied direct proactief aan om een gestructureerde `ROADMAP.md` op te zetten op basis van `docs/SPECIFICATION.md`, opgedeeld in logische fasen (bijv. Fase 1: Datamodel & RLS, Fase 2: Navigatie & Basis UI, Fase 3: Core PoC functionaliteiten, Fase 4: Validatie & Tests).
+   - **Indien er wél een `ROADMAP.md` is**: Controleer welke punten openstaan en werk de status actief bij na het afronden van taken.
 
-### Context & Ecosysteem Regels:
+### 🏛️ Context & Ecosysteem Regels (Hub & Spoke):
 - Deze applicatie maakt integraal deel uit van het **SchrobbeDock Ecosysteem**.
-- **Authenticatie & Single Account**: De gebruiker logt in via de centrale Hub (Supabase Auth). Bouw GEEN eigen inlog- of registratieschermen.
-- **Licenties & RLS**: Data-toegang wordt afgedwongen via de centrale tabel `public.licenses` voor app_slug: '__SLUG__'.
-- **Thema & Styling**: Gebruik altijd de geïmporteerde package `schrobbedock_theme` (Warm Amber & Deep Slate).
-- **Feedback**: Gebruik de centrale package `schrobbedock_feedback` met appSlug: '__SLUG__'.
-- **Database**: Tabellen horen in het PostgreSQL schema `app___SLUG__`.
+- **Authenticatie & Single Account**: Gebruikers loggen in via de centrale Hub (Supabase Auth). Bouw GEEN eigen inlog- of registratieschermen. Lees de actieve sessie of stuur niet-geauthenticeerde gebruikers door naar de centrale Hub (`https://robbedillen.be/#/login`).
+- **Licenties & RLS**: Toegang tot deze app vereist een actieve licentie in `public.licenses` voor `app_id: '__SLUG__'`. Data-toegang wordt strikt beveiligd via PostgreSQL Row Level Security (RLS).
+- **Thema & Styling**: Hanteer ALTIJD de officiële SchrobbeDock huisstijl via de geïmporteerde package `schrobbedock_theme` (Warm Amber `#D97706` & Deep Slate `#0F172A`). Gebruik geen ad-hoc kleuren.
+- **Feedback & Foutmeldingen**: Gebruik ALTIJD de centrale package `schrobbedock_feedback` met `appSlug: '__SLUG__'`.
+- **Database Schema**: Tabellen voor deze app horen logisch thuis in het PostgreSQL schema `app___SLUG__`.
+
+### 🛡️ Git & Version Control Werkwijze:
+- Push NOOIT tussentijds naar de remote repository (`origin/main`). Wijzigingen worden tijdens de sessie enkel lokaal getest en gecommit.
+- `git push` is pas toegestaan wanneer de gebruiker expliciet aangeeft dat de sessie stopt of expliciet opdracht geeft om te pushen.
+
+### 💬 Communicatiestijl:
+- Denk in systemen: hou altijd rekening met licenties en centrale Supabase RLS.
+- Praktische code: lever schone, modulaire code met Riverpod en GoRouter.
+- Geen overbodige uitleg: de gebruiker is een ontwikkelaar. Focus op structuur, best practices en implementatie.
 '@
 $RoleContent = $RoleTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path (Join-Path $AgentDir "role.md") -Value $RoleContent -Encoding UTF8
