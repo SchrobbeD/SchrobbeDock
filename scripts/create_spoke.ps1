@@ -11,14 +11,18 @@ param(
     [string]$Description,
 
     [Parameter(Mandatory = $false)]
-    [string]$LaunchUrl
+    [string]$LaunchUrl,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
 
 # 1. Bepaal Slug en Mappen
 if ([string]::IsNullOrWhiteSpace($Slug)) {
-    $Slug = $Name.ToLower().Trim() -replace '[^a-z0-9]+', '_' -replace '^_+|_+$', ''
+    # Converteer CamelCase ("WinterRaket") naar snake_case ("winter_raket")
+    $Slug = ($Name -replace '([a-z0-9])([A-Z])', '$1_$2').ToLower().Trim() -replace '[^a-z0-9]+', '_' -replace '^_+|_+$', ''
 }
 
 if ([string]::IsNullOrWhiteSpace($Description)) {
@@ -31,7 +35,8 @@ if ([string]::IsNullOrWhiteSpace($LaunchUrl)) {
 
 $RepoRoot = (Get-Item $PSScriptRoot).Parent.FullName
 $ParentDir = (Get-Item $RepoRoot).Parent.FullName
-$TargetDir = Join-Path $ParentDir $Slug
+# Behoud de exacte naam van de app voor de foldernaam (bijv. "WinterRaket")
+$TargetDir = Join-Path $ParentDir $Name
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "SchrobbeDock Flutter Spoke Generator" -ForegroundColor Yellow
@@ -43,8 +48,15 @@ Write-Host "• Launch URL   : $LaunchUrl"
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 if (Test-Path $TargetDir) {
-    Write-Error "Map '$TargetDir' bestaat al! Kies een andere naam of verwijder de bestaande map."
-    exit 1
+    $existingItems = Get-ChildItem -Path $TargetDir -Force
+    if ($existingItems.Count -gt 0 -and -not $Force) {
+        Write-Error "Map '$TargetDir' bestaat al en is niet leeg! Gebruik -Force om te overschrijven of kies een andere naam."
+        exit 1
+    }
+    if ($Force) {
+        Write-Host "⚠️ Map '$TargetDir' bestaat al: overschrijven geforceerd (-Force)..." -ForegroundColor Yellow
+        Remove-Item -Path "$TargetDir\*" -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 # 2. Flutter Project Initialisatie
