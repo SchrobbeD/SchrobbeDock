@@ -60,11 +60,11 @@ if (Test-Path $TargetDir) {
 }
 
 # 2. Flutter Project Initialisatie
-Write-Host "`n[1/5] Flutter multi-platform project aanmaken..." -ForegroundColor Green
+Write-Host "`n[1/7] Flutter multi-platform project aanmaken..." -ForegroundColor Green
 flutter create --org be.robbedillen --platforms web,windows,android --project-name $Slug $TargetDir
 
 # 3. pubspec.yaml Configureren met SchrobbeDock Packages
-Write-Host "[2/5] pubspec.yaml configureren met centrale packages en dependencies..." -ForegroundColor Green
+Write-Host "[2/7] pubspec.yaml configureren met centrale packages en dependencies..." -ForegroundColor Green
 $PubspecPath = Join-Path $TargetDir "pubspec.yaml"
 
 $PubspecTemplate = @'
@@ -108,8 +108,64 @@ flutter:
 $PubspecContent = $PubspecTemplate.Replace('__SLUG__', $Slug).Replace('__DESCRIPTION__', $Description)
 Set-Content -Path $PubspecPath -Value $PubspecContent -Encoding UTF8
 
-# 4. Schermen en SSO-guards genereren (lib/main.dart)
-Write-Host "[3/5] Schermen, thema en SSO-guards genereren (lib/main.dart)..." -ForegroundColor Green
+# 4. Secrets, .env & Supabase Configuratie
+Write-Host "[3/7] Secrets, .env.example en SupabaseConfig aanmaken..." -ForegroundColor Green
+
+# .env.example
+$EnvExampleContent = @'
+# ==============================================================================
+# SchrobbeDock Spoke - Centrale Supabase Configuratie
+# ==============================================================================
+# De openbare anon key is veilig voor client-side gebruik dankzij PostgreSQL RLS.
+# Geef NOOIT de service_role secret aan deze client app!
+
+SUPABASE_URL=https://supabase.robbedillen.be
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+'@
+Set-Content -Path (Join-Path $TargetDir ".env.example") -Value $EnvExampleContent -Encoding UTF8
+Set-Content -Path (Join-Path $TargetDir ".env") -Value $EnvExampleContent -Encoding UTF8
+
+# .gitignore (zorgt dat .env nooit lekt)
+$GitignorePath = Join-Path $TargetDir ".gitignore"
+$GitignoreAdditions = @'
+
+# Environment & Secrets (Nooit committen!)
+.env
+.env.*
+!.env.example
+
+# IDE & OS files
+.DS_Store
+Thumbs.db
+*.iml
+.idea/
+.vscode/
+'@
+Add-Content -Path $GitignorePath -Value $GitignoreAdditions -Encoding UTF8
+
+# lib/config/supabase_config.dart
+$ConfigDir = Join-Path $TargetDir "lib\config"
+New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
+$SupabaseConfigPath = Join-Path $ConfigDir "supabase_config.dart"
+
+$SupabaseConfigContent = @'
+class SupabaseConfig {
+  static const String url = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'https://supabase.robbedillen.be',
+  );
+
+  static const String anonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
+  );
+}
+'@
+Set-Content -Path $SupabaseConfigPath -Value $SupabaseConfigContent -Encoding UTF8
+
+# 5. Schermen en SSO-guards genereren (lib/main.dart)
+Write-Host "[4/7] Schermen, thema en SSO-guards genereren (lib/main.dart)..." -ForegroundColor Green
 $MainDartPath = Join-Path $TargetDir "lib\main.dart"
 
 $MainDartTemplate = @'
@@ -119,13 +175,14 @@ import 'package:go_router/go_router.dart';
 import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
 import 'package:schrobbedock_theme/schrobbedock_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/supabase_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
-    url: const String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://supabase.robbedillen.be'),
-    anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'ANON_KEY_HERE'),
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
   );
 
   runApp(
@@ -307,11 +364,12 @@ class LoginRequiredScreen extends StatelessWidget {
 $MainDartContent = $MainDartTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path $MainDartPath -Value $MainDartContent -Encoding UTF8
 
-# 5. Functionele Specificatie & Antigravity AI-regels Aanmaken
-Write-Host "[4/5] Functionele specificatie & Antigravity regels aanmaken..." -ForegroundColor Green
+# 6. Documentatie (SPECIFICATION.md & GITHUB_SETUP.md) & Antigravity Regels
+Write-Host "[5/7] Documentatie & Antigravity regels genereren..." -ForegroundColor Green
 $DocsDir = Join-Path $TargetDir "docs"
 New-Item -ItemType Directory -Path $DocsDir -Force | Out-Null
 
+# docs/SPECIFICATION.md
 $SpecTemplate = @'
 # __NAME__ - Functionele Specificatie & PoC Briefing
 
@@ -354,6 +412,45 @@ $SpecTemplate = @'
 $SpecContent = $SpecTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path (Join-Path $DocsDir "SPECIFICATION.md") -Value $SpecContent -Encoding UTF8
 
+# docs/GITHUB_SETUP.md
+$GithubSetupTemplate = @'
+# GitHub Repository & Secrets Handleiding: __NAME__
+
+Deze handleiding legt uit hoe je deze Spoke app koppelt aan een eigen GitHub repository.
+
+---
+
+## 1. Repository Aanmaken op GitHub
+1. Ga in je browser naar: **https://github.com/new**
+2. Vul in:
+   - **Repository name**: `__NAME__` (of `__SLUG__`)
+   - **Owner**: `SchrobbeD` (of jouw persoonlijke account)
+   - **Visibility**: Kies *Private* of *Public*
+   - Vink *“Add a README”* en *“.gitignore”* **UIT** (deze zijn lokaal al aangemaakt).
+3. Klik op **Create repository**.
+
+---
+
+## 2. Eerste Push naar GitHub
+Omdat Git lokaal al geïnitialiseerd is, hoef je enkel de remote te koppelen en te pushen:
+
+```powershell
+cd c:\Users\robbe\Documents\__NAME__
+git remote add origin https://github.com/SchrobbeD/__NAME__.git
+git push -u origin main
+```
+
+---
+
+## 3. Hoe zit het met Secrets?
+Binnen het SchrobbeDock ecosysteem hoef je in deze Spoke app **GEEN geheime tokens** op te slaan:
+- **Authenticatie**: Gebeurt via de centrale Hub (geen eigen Google OAuth client nodig).
+- **Feedback & Issues**: Worden verwerkt door de centrale Supabase Edge Function (`submit-feedback`). De GitHub API-token staat veilig op de Supabase server.
+- **Supabase Anon Key**: De sleutel in `lib/config/supabase_config.dart` is een openbare sleutel en is beveiligd via PostgreSQL Row Level Security (RLS).
+'@
+$GithubSetupContent = $GithubSetupTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
+Set-Content -Path (Join-Path $DocsDir "GITHUB_SETUP.md") -Value $GithubSetupContent -Encoding UTF8
+
 # Antigravity Rules (.agents/rules/role.md)
 $AgentDir = Join-Path $TargetDir ".agents\rules"
 New-Item -ItemType Directory -Path $AgentDir -Force | Out-Null
@@ -381,6 +478,7 @@ Jouw taak is om deze applicatie te bouwen, te onderhouden en te laten integreren
 ### 🛡️ Git & Version Control Werkwijze:
 - Push NOOIT tussentijds naar de remote repository (`origin/main`). Wijzigingen worden tijdens de sessie enkel lokaal getest en gecommit.
 - `git push` is pas toegestaan wanneer de gebruiker expliciet aangeeft dat de sessie stopt of expliciet opdracht geeft om te pushen.
+- Raadpleeg `docs/GITHUB_SETUP.md` voor de initiële koppeling met de remote repository.
 
 ### 💬 Communicatiestijl:
 - Denk in systemen: hou altijd rekening met licenties en centrale Supabase RLS.
@@ -390,8 +488,25 @@ Jouw taak is om deze applicatie te bouwen, te onderhouden en te laten integreren
 $RoleContent = $RoleTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path (Join-Path $AgentDir "role.md") -Value $RoleContent -Encoding UTF8
 
-# 6. Automatisch Supabase Registratiemigratie Aanmaken in SchrobbeDock
-Write-Host "[5/5] Supabase registratiemigratie genereren in SchrobbeDock..." -ForegroundColor Green
+# 7. Git Initialisatie & Initial Commit in de nieuwe Spoke
+Write-Host "[6/7] Git initialiseren en initiële commit aanmaken..." -ForegroundColor Green
+Push-Location $TargetDir
+try {
+    git init -b main 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        git init
+        git branch -M main
+    }
+    git add .
+    git commit -m "feat: initial spoke scaffold for $Name from SchrobbeDock generator"
+} catch {
+    Write-Warning "Git init waarschuwing: $_"
+} finally {
+    Pop-Location
+}
+
+# 8. Automatisch Supabase Registratiemigratie Aanmaken in SchrobbeDock
+Write-Host "[7/7] Supabase registratiemigratie genereren in SchrobbeDock..." -ForegroundColor Green
 $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddHHmmss")
 $MigrationFile = Join-Path $RepoRoot "supabase\migrations\${Timestamp}_register_${Slug}.sql"
 
@@ -447,12 +562,15 @@ $MigrationSql = $MigrationTemplate.
 Set-Content -Path $MigrationFile -Value $MigrationSql -Encoding UTF8
 
 Write-Host "`n==========================================================" -ForegroundColor Cyan
-Write-Host "Flutter Spoke App '$Name' is succesvol gegenereerd!" -ForegroundColor Green
+Write-Host "Flutter Spoke App '$Name' is 100% klaar!" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "• App Locatie : $TargetDir"
-Write-Host "• Specificatie: $TargetDir\docs\SPECIFICATION.md"
-Write-Host "• Migratie    : $MigrationFile"
+Write-Host "• App Locatie  : $TargetDir"
+Write-Host "• Specificatie : $TargetDir\docs\SPECIFICATION.md"
+Write-Host "• GitHub Gids  : $TargetDir\docs\GITHUB_SETUP.md"
+Write-Host "• DB Migratie  : $MigrationFile"
 Write-Host "`nVolgende stappen:"
 Write-Host "1. Plak je output uit het Gemini Notebook in: $TargetDir\docs\SPECIFICATION.md"
-Write-Host "2. Open de nieuwe map in Antigravity om direct te bouwen!"
+Write-Host "2. Maak een lege repo aan op GitHub (https://github.com/new) genaamd '$Name'"
+Write-Host "3. Push direct via: cd $TargetDir; git remote add origin https://github.com/SchrobbeD/$Name.git; git push -u origin main"
+Write-Host "4. Open de map in Antigravity om direct met de Roadmap en PoC te starten!"
 Write-Host "==========================================================" -ForegroundColor Cyan
