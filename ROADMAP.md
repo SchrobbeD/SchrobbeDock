@@ -201,21 +201,22 @@
   3. **Geverifieerd Domein (Google Search Console) [AFGEROND]**: Eigenaarschap van `robbedillen.be` succesvol geverifieerd via DNS TXT-record bij one.com.
   4. **OAuth Status Publiceren (Google Cloud Console) [AFGEROND]**: OAuth Client opgeschoond naar HTTPS-only en app succesvol gepubliceerd naar *"In Production"*. De 100-gebruikerslimiet is opgeheven.
 
-### 7. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
-- **README.md (Repository Overview & Setup)**:
-  - Overzicht van de Hub & Spoke ecosysteem architectuur.
-  - Lokale installatie- en opstartinstructies (Supabase CLI, Flutter, migraties draaien, seed data).
-  - CI/CD overzicht (Supabase DB pushes & Web hosting deploy).
-- **Spoke App Ontwikkelingsgids (`docs/SPOKE_INTEGRATION_GUIDE.md`)**:
+### 7. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding [AFGEROND]
+- **README.md (Repository Overview & Setup) [AFGEROND]**:
+  - Overzicht van de Hub & Spoke ecosysteem architectuur en componenten.
+  - Lokale installatie- en opstartinstructies (Supabase CLI, Flutter, Edge Functions, seed data).
+  - Testprotocollen en CI/CD overzicht (Supabase DB pushes & Web hosting deploy).
+  - Package release tags en documentatie-index.
+- **Spoke App Ontwikkelingsgids (`docs/SPOKE_INTEGRATION_GUIDE.md`) [AFGEROND]**:
   - Complete gids: *Wat moet een Spoke app minimaal implementeren en hoe start je een nieuw Spoke project?*
   - **Single Sign-On & Sessie**: Supabase Auth integratie, token handling en sessie-uitwisseling met de Hub.
   - **Licentie- en toegangsvalidatie**: Hoe een Spoke controleert of de ingelogde gebruiker een actieve licentie heeft in `public.user_licenses` en RLS enforcement.
-  - **Package Versiebeheer & Git Release Tags**: Hoe Spoke apps pinnen op specifieke package releases (bijv. `ref: theme-v1.0.0`) om breaking changes en ongewenste updates te voorkomen.
+  - **Package Versiebeheer & Git Release Tags**: Hoe Spoke apps pinnen op specifieke package releases (`ref: theme-v1.0.0`, `ref: feedback-v1.2.0`) om breaking changes en ongewenste updates te voorkomen.
   - **Thema-integratie**: Implementatie van `packages/schrobbedock_theme` (auto-sync met voorkeuren en integratie van `ThemeCustomizerDialog`).
   - **Feedback-integratie**: Implementatie van `packages/schrobbedock_feedback` (1-regel bug- en suggestierapportage naar de bijbehorende GitHub repo).
-- **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`)**:
-  - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app.
-  - Platform Admins: Genereren van uitnodigingen gekoppeld aan applicaties en tiers, tracking van genodigden, en de herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset).
+- **Handleiding / Gebruikersgids (`docs/HANDLEIDING.md`) [AFGEROND]**:
+  - Eindgebruikers: Registratie via uitnodigingscode, inloggen (e-mail vs Google), instellen van TOTP in Authenticator app, thematisering, feedback en account verwijderen (AVG).
+  - Platform Admins: Genereren van uitnodigingen met `recipient_name`, tracking van genodigden, herstelprocedure bij verloren 2FA-sleutels (Admin 2FA Reset), centraal feedbackcontrolepaneel met GitHub tweeweg sync en live versie validatie / cache purge.
 
 ### 8. Multi-Factor Authenticatie (MFA) Uitbreidingen: SMS, E-mail & Passkeys (WebAuthn)
 - **Doel**:
