@@ -186,20 +186,20 @@
     - **Self-Service Profiel (`/profile`)**: Formulier voor persoonsgegevens (naam, telefoon, adres), gekoppelde login provider, 2FA status, licentie-overzicht en Gevarenzone voor accountverwijdering.
     - **Post-delete UX**: Directe afmelding via `signOut()`, opruimen van lokale opslag en redirect naar `/login` met bevestiging.
 
-### 6b. Google Cloud OAuth Consent Screen & Compliance (Productie Status) [FASE 1 AFGEROND]
+### 6b. Google Cloud OAuth Consent Screen & Compliance (Productie Status) [AFGEROND]
 - **Doel**: Voldoen aan alle vereisten van het Google API Services User Data Policy om de Google OAuth client van status *"Testing"* (100 gebruikerslimiet) officieel naar *"In Production"* te brengen.
-- **Status & Actiepunten**:
+- **Opgeleverde Status & Resultaat**:
   1. **Publieke Privacy Policy URL (`/privacy`) [AFGEROND]**:
      - `PrivacyPolicyScreen` in `hub_app/lib/screens/privacy_policy_screen.dart`.
      - Voldoet aan AVG/GDPR en bevat de verplichte Google API Limited Use Disclosure.
      - Publiek toegankelijk zonder login in `router.dart`.
   2. **Publieke Terms of Service (`/terms`) [AFGEROND]**:
-     - `TermsOfServiceScreen` in `hub_app/lib/screens/terms_of_service_screen.dart`.
+     - `TermsOfServiceScreen` in `hub_app/lib/screens/terms_of_service_screen.dart` (inclusief Art. 7 Pintjesclausule).
      - Publiek toegankelijk zonder login in `router.dart`.
      - Links toegevoegd onderaan Login (`/login`) en Registratie (`/register`).
      - Gedekt door 21/21 geautomatiseerde tests.
-  3. **Geverifieerd Domein (Google Search Console) [OPEN - FASE 2]**: Verificatie van eigenaarschap van `robbedillen.be` via DNS TXT-record in one.com beheerpaneel.
-  4. **OAuth Status Publiceren (Google Cloud Console) [OPEN - FASE 3]**: URLs invullen en overschakelen van *Testing* naar *In Production* in Google Cloud Console.
+  3. **Geverifieerd Domein (Google Search Console) [AFGEROND]**: Eigenaarschap van `robbedillen.be` succesvol geverifieerd via DNS TXT-record bij one.com.
+  4. **OAuth Status Publiceren (Google Cloud Console) [AFGEROND]**: OAuth Client opgeschoond naar HTTPS-only en app succesvol gepubliceerd naar *"In Production"*. De 100-gebruikerslimiet is opgeheven.
 
 ### 7. Documentatie: Repository README, Spoke Ontwikkelingsgids & Beheerdershandleiding
 - **README.md (Repository Overview & Setup)**:
