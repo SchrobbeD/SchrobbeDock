@@ -527,25 +527,20 @@ $MigrationTemplate = @'
 INSERT INTO public.apps (
     name,
     slug,
-    description,
-    launch_url,
-    icon_name,
     github_repo_owner,
     github_repo_name,
     is_active
 ) VALUES (
     '__NAME__',
     '__SLUG__',
-    '__DESCRIPTION__',
-    '__LAUNCH_URL__',
-    'widgets',
     'SchrobbeD',
     '__SLUG__',
     true
 ) ON CONFLICT (slug) DO UPDATE SET
     name = EXCLUDED.name,
-    description = EXCLUDED.description,
-    launch_url = EXCLUDED.launch_url;
+    github_repo_owner = EXCLUDED.github_repo_owner,
+    github_repo_name = EXCLUDED.github_repo_name,
+    is_active = EXCLUDED.is_active;
 
 -- 2. Dedicated PostgreSQL schema aanmaken voor data-isolatie
 CREATE SCHEMA IF NOT EXISTS app___SLUG__;
