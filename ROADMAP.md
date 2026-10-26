@@ -45,12 +45,29 @@
 
 ## Eerstvolgende Punten
 
-### 0. End-to-End Testen & Validatie van Toegangsaanvragen & Auth Package [OPEN - VOLGENDE SESSIE]
-- **Doel**: De nieuwste developments grondig valideren in een end-to-end scenario:
-  1. **Aanvraag indienen**: Vanuit Spoke app `Raket` (of testscript) een toegangsaanvraag indienen zonder licentie via `request_app_access`.
-  2. **Admin Beoordeling**: In de centrale Hub (`/admin/invites` tab Toegangsaanvragen) de openstaande aanvraag bekijken, details inspecteren en goedkeuren (met licentietier & rol).
-  3. **Automatische Licentietoekenning**: Bevestigen dat de licentie direct geactiveerd wordt in `public.user_licenses` en `LicenseGate` de Spoke direct ontgrendelt.
-  4. **Afwijzingsflow**: Testen van het afwijzen van aanvragen en foutafhandeling bij dubbele aanvragen.
+### 0. Starten met Stap 5: Lokale Testomgeving & Functionele Tests (Raket & Hub) [PRIORITEIT - DIRECT BIJ START VOLGENDE SESSIE]
+- **Doel**: De lokale ontwikkelstack activeren en end-to-end testen met de 8 seed users:
+  1. **Docker Desktop & Supabase starten**:
+     - Docker Desktop starten op Windows.
+     - In `SchrobbeDock`: `npx supabase db reset` (bouwt alle migraties inclusief `app_raket` en seed data met 8 gebruikers op).
+  2. **Raket Spoke starten & valideren**:
+     - `flutter run -d emulator-5554` (verbindt nu automatisch via `http://10.0.2.2:54321` in debug mode).
+     - **Happy Path Dubbelspel**: Inloggen met `user1@hub.local` t/m `user4@hub.local` (wachtwoord: `password123`) om de 4 baanslots te controleren.
+     - **Unhappy Path**: Inloggen met `user7@hub.local` om `NoAccessView` en de "Toegang Aanvragen" flow te testen.
+  3. **Admin Beoordeling in de Hub**:
+     - In de Hub inloggen als `admin@hub.local` en de aanvraag van `user7` goedkeuren.
+
+### 0.1. Mobile Responsiveness Fix in `schrobbedock_theme` (Customizer Dialog) [SPOKE-TO-HUB ALERT - INGEPLAND]
+- **Herkomst**: Overdrachtsbericht vanuit Spoke app **Raket** (getest op Android emulator 360-400dp viewport).
+- **Probleem**: `SchrobbeDockTheme.showCustomizer(context)` veroorzaakt `RenderFlex` overflow errors op smartphones.
+- **Concrete actiepunten in `packages/schrobbedock_theme`**:
+  1. **Dialoog Form Factor**:
+     - Laat `ThemeCustomizerDialog.show(context)` op schermen < 600px (`MediaQuery.sizeOf(context).width < 600`) openen als een `showModalBottomSheet(isScrollControlled: true, useSafeArea: true)` met afgeronde bovenhoeken. Op desktop/tablet blijft het een `Dialog`.
+  2. **Weergavemodus SegmentedButton**:
+     - Voorkom overflow aan de rechterrand door compacte `visualDensity: VisualDensity.compact` te gebruiken en/of kortere labels/alleen icons op smalle viewports.
+  3. **Sectie 'Mijn Opgeslagen Thema\'s'**:
+     - Vervang de `Row` met het label en de knop `+ Thema Opslaan` door een `Wrap` (of zet de knop onder het label of gebruik een compact `IconButton`).
+  4. **Release Tag**: Na implementatie en tests een nieuwe patch/minor tag publiceren (`theme-v1.1.0`), CHANGELOG bijwerken en updaten in Spoke apps.
 
 ### 1. Centraal Probleem- & Feedbackmeldsysteem (`packages/schrobbedock_feedback`) [AFGEROND - v1.0.0]
 - **Doel**: Gebruikers moeten vanuit **elke Spoke app** (en de centrale Hub) laagdrempelig een probleem, bug of suggestie kunnen melden. Meldingen worden automatisch doorgestuurd als GitHub Issue naar de specifieke repository van die app.
