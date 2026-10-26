@@ -283,3 +283,14 @@
 - **Implementatie**:
   - **Generator Script (`scripts/create_spoke.ps1`)**: Automatische injectie van `schrobbedock_auth` en de **Spoke-to-Hub Ecosysteem Alert Rule** in `.agents/rules/role.md` van elke nieuwe Spoke.
   - **Spoke Integratiegids (`docs/SPOKE_INTEGRATION_GUIDE.md`)**: Volledig bijgewerkt met `LicenseGate`, `SchrobbeDockUserMenu` en de verplichte overdrachtsprocedure.
+
+### 12. Spoke CI/CD Pipeline & Deployment Automation [OPEN]
+- **Doel**: Bij de creatie van een nieuwe Spoke applicatie direct duidelijke instructies, een checklist en een reminder bieden om optioneel CI/CD in te stellen voor automatische web deployment en build-validatie.
+- **Te Realiseren Onderdelen**:
+  1. **Reminder & Checklist bij Spoke Creatie**:
+     - In `scripts/create_spoke.ps1` (zowel terminal output als `docs/GITHUB_SETUP.md`) een expliciete herinnering opnemen over het instellen van GitHub Actions CI/CD (web deployment via SFTP naar One.com subdomein of hosting, inclusief de benodigde secrets).
+  2. **Kant-en-klaar CI/CD Template (`deploy_web.yml`)**:
+     - Een optionele of standaard workflow genereren in `.github/workflows/deploy_web.yml` in de nieuwe Spoke, gebaseerd op de beproefde Hub-workflow (`flutter build web --release` met `--base-href`, `actions/checkout@v4`, en SFTP deployment).
+  3. **Hosting & Routing Documentatie**:
+     - Automatische opname van een `.htaccess` template voor Apache webservers (One.com) om SPA routing (GoRouter) te laten werken zonder 404's bij directe paginalinks.
+

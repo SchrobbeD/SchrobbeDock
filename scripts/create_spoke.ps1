@@ -461,6 +461,23 @@ Binnen het SchrobbeDock ecosysteem hoef je in deze Spoke app **GEEN geheime toke
 - **Authenticatie**: Gebeurt via de centrale Hub (geen eigen Google OAuth client nodig).
 - **Feedback & Issues**: Worden verwerkt door de centrale Supabase Edge Function (`submit-feedback`). De GitHub API-token staat veilig op de Supabase server.
 - **Supabase Anon Key**: De sleutel in `lib/config/supabase_config.dart` is een openbare sleutel en is beveiligd via PostgreSQL Row Level Security (RLS).
+
+---
+
+## 4. CI/CD & Automatische Deployment (Optioneel / Aanbevolen)
+Wil je deze Spoke app automatisch laten bouwen en deployen (bijvoorbeeld als Web App op One.com of een andere hosting)?
+
+### Benodigde Stappen:
+1. **GitHub Repository Secrets Instellen**:
+   - Ga in GitHub naar: **Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ **New repository secret**.
+   - Voeg toe indien je SFTP deployment gebruikt:
+     - `SFTP_HOST`: bijv. `ssh.c49x8am1a.service.one`
+     - `SFTP_USER`: je SFTP SSH/gebruikersnaam
+     - `SFTP_PASSWORD`: je SFTP wachtwoord
+2. **Workflow Aanmaken (`.github/workflows/deploy_web.yml`)**:
+   - Gebruik de beproefde Hub deployment workflow als template (`flutter build web --release` en `wlixcc/SFTP-Deploy-Action`).
+3. **Apache SPA Routing (`web/.htaccess`)**:
+   - Zorg bij Apache hosting voor een `.htaccess` in de `web/` map zodat directe URL's en refreshes van routes (GoRouter) netjes herschreven worden naar `index.html` zonder 404-errors.
 '@
 $GithubSetupContent = $GithubSetupTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path (Join-Path $DocsDir "GITHUB_SETUP.md") -Value $GithubSetupContent -Encoding UTF8
@@ -497,6 +514,27 @@ Je moet dit **altijd direct, automatisch en proactief melden** aan de gebruiker 
 - Push NOOIT tussentijds naar de remote repository (`origin/main`). Wijzigingen worden tijdens de sessie enkel lokaal getest en gecommit.
 - `git push` is pas toegestaan wanneer de gebruiker expliciet aangeeft dat de sessie stopt of expliciet opdracht geeft om te pushen.
 - Raadpleeg `docs/GITHUB_SETUP.md` voor de initiële koppeling met de remote repository.
+
+### 🌙 Sessie-einde & Afsluitprotocol (bij 'we stoppen voor de avond / sessie'):
+Wanneer de gebruiker aangeeft dat de sessie stopt (bijv. *"we stoppen voor de avond"*, *"we sluiten af"*, *"sessie afronden"*), voer dan ALTIJD autonoom en gestructureerd de volgende stappen uit:
+1. **Kwaliteits- en Lintercontrole**:
+   - Controleer of er geen syntaxfouten of achtergebleven testbestanden zijn. Draai indien nodig `flutter analyze` om zeker te zijn van een gezonde codebase.
+2. **Roadmap & Voortgang Bijwerken**:
+   - Werk `ROADMAP.md` direct bij: vink alle voltooide taken af en markeer waar we gebleven zijn.
+   - Noteer openstaande punten of aandachtspunten voor de volgende sessie.
+3. **Lokale Git Commit**:
+   - Controleer gewijzigde bestanden via `git status`.
+   - Voeg alle relevante bestanden toe en maak een duidelijke, conventionele commit (bijv. `feat: ...`, `fix: ...` of `chore: ...`).
+4. **Git Push naar Remote**:
+   - Push alle commits naar de remote repository (`git push origin main`). Omdat de gebruiker de sessie afsluit, is dit nu expliciet toegestaan en verplicht.
+5. **Hub Overdrachtscheck (Spoke-to-Hub)**:
+   - Evalueer of er tijdens deze sessie vereisten zijn ontstaan voor de centrale SchrobbeDock Hub (bijv. database-migraties in `app___SLUG__`, ontbrekende RPC's, package updates).
+   - Zo ja, lever een kant-en-klaar overdrachtsbericht dat direct in de SchrobbeDock sessie geplakt kan worden.
+6. **Beknopt Eindrapport**:
+   - Sluit af met een helder, beknopt overzicht:
+     * Wat is er voltooid?
+     * Bevestiging van commit en push hash/status.
+     * Het concrete en logische startpunt voor de volgende sessie.
 
 ### 💬 Communicatiestijl:
 - Denk in systemen: hou altijd rekening met licenties en centrale Supabase RLS.
@@ -586,4 +624,5 @@ Write-Host "1. Plak je output uit het Gemini Notebook in: $TargetDir\docs\SPECIF
 Write-Host "2. Maak een lege repo aan op GitHub (https://github.com/new) genaamd '$Name'"
 Write-Host "3. Push direct via: cd $TargetDir; git remote add origin https://github.com/SchrobbeD/$Name.git; git push -u origin main"
 Write-Host "4. Open de map in Antigravity om direct met de Roadmap en PoC te starten!"
+Write-Host "5. (Optioneel) Richt CI/CD in voor automatische web deployment (zie docs/GITHUB_SETUP.md)"
 Write-Host "==========================================================" -ForegroundColor Cyan
