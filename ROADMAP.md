@@ -238,4 +238,31 @@
   - Hybride/Zero-Trust afdwinging: Het session-level token (`aal2`) blijft uniform voor alle aangesloten Spoke-apps, ongeacht welke factor gebruikt is.
 
 
+### 9. Centrale Toegangsaanvragen & Licentie-Workflow (`public.license_requests`) [AFGEROND]
+- **Doel**: Gebruikers die in een Spoke app terechtkomen zonder uitnodigingscode kunnen laagdrempelig toegang aanvragen bij de beheerder.
+- **Opgeleverde Architectuur**:
+  - **Database & RLS (`20261026011500_license_requests_and_access_workflow.sql`)**:
+    - Tabel `public.license_requests` met row level locking en RLS (gebruikers beheren eigen verzoeken, Platform Admins beheren alle verzoeken).
+    - RPC `request_app_access(target_app_slug, request_reason)`: Maakt of actualiseert openstaande verzoeken en voorkomt dubbele actieve licenties.
+    - RPC `review_license_request(request_id, new_status, assigned_tier, assigned_role)`: Atomair toekennen van licentie in `public.user_licenses` bij goedkeuring en statusmutatie naar `approved` of `rejected`.
+    - Realtime updates via `supabase_realtime` publicatie.
+  - **Admin Hub Beheer (`hub_app/lib/screens/admin_invites_screen.dart`)**:
+    - Nieuwe tab **Toegangsaanvragen** met live badge voor aantal openstaande verzoeken.
+    - Segmented filterbalk (*In Afwachting*, *Goedgekeurd*, *Afgewezen*, *Alles*).
+    - Modals voor directe goedkeuring (met tier- en rolselectie) en afwijzing.
 
+### 10. Gedeelde Authenticatie & Licentie-Guard Package (`packages/schrobbedock_auth` v1.0.0) [AFGEROND]
+- **Doel**: Een uniforme, framework-onafhankelijke licentie- en loginbewaker voor alle Spoke apps.
+- **Opgeleverde Architectuur**:
+  - **Standalone Package**: In `packages/schrobbedock_auth` (v1.0.0).
+  - `LicenseGate` / `SchrobbeDockAuthGuard`: Omwikkelt Spoke apps en handelt automatisch ongeauthenticeerde bezoeken, actieve licenties, verlopen licenties en lopende aanvragen af.
+  - `LoginRequiredView`: Strak aanmeldscherm met SSO-redirect naar de centrale Hub (`#/login?redirect=...`).
+  - `NoAccessView`: Toegangs- en licentiewall met geïntegreerde uitnodigingscode inwisseling (`claim_invitation`), directe toegangsaanvraag (`request_app_access`), openstaande statusbanner en terugknop naar de Hub.
+  - `SchrobbeDockUserMenu`: Kant-en-klare AppBar account- en profielwidget met avatar, Hub navigatie (`#/profile`, `#/dashboard`) en uitlogactie.
+  - 3/3 tests geslaagd met 0 analyzer waarschuwingen.
+
+### 11. Spoke-to-Hub Ecosysteem Alert Rule & Scaffolding [AFGEROND]
+- **Doel**: Voorkomen dat Spoke agents centrale infrastructuur lokaal dupliceren of 'hacken'.
+- **Implementatie**:
+  - **Generator Script (`scripts/create_spoke.ps1`)**: Automatische injectie van `schrobbedock_auth` en de **Spoke-to-Hub Ecosysteem Alert Rule** in `.agents/rules/role.md` van elke nieuwe Spoke.
+  - **Spoke Integratiegids (`docs/SPOKE_INTEGRATION_GUIDE.md`)**: Volledig bijgewerkt met `LicenseGate`, `SchrobbeDockUserMenu` en de verplichte overdrachtsprocedure.

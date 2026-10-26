@@ -27,15 +27,25 @@ class _AdminInvitesScreenState extends ConsumerState<AdminInvitesScreen>
   List<Map<String, dynamic>> _users = [];
   String? _usersError;
 
+  // State voor Toegangsaanvragen
+  bool _isLoadingRequests = true;
+  List<Map<String, dynamic>> _licenseRequests = [];
+  String? _requestsError;
+  String _selectedRequestsFilter = 'pending'; // 'pending', 'approved', 'rejected', 'all'
+
+  int get _pendingRequestsCount =>
+      _licenseRequests.where((r) => r['status'] == 'pending').length;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
     _loadInvitations();
     _loadUsers();
+    _loadLicenseRequests();
   }
 
   @override
@@ -715,9 +725,17 @@ Uitnodigingscode: $code''';
         ),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.vpn_key), text: 'Uitnodigingen'),
-            Tab(icon: Icon(Icons.manage_accounts), text: 'Gebruikers & 2FA'),
+          tabs: [
+            const Tab(icon: Icon(Icons.vpn_key), text: 'Uitnodigingen'),
+            const Tab(icon: Icon(Icons.manage_accounts), text: 'Gebruikers & 2FA'),
+            Tab(
+              icon: Badge(
+                isLabelVisible: _pendingRequestsCount > 0,
+                label: Text('$_pendingRequestsCount'),
+                child: const Icon(Icons.assignment_ind_outlined),
+              ),
+              text: 'Toegangsaanvragen',
+            ),
           ],
         ),
         actions: [
@@ -733,8 +751,10 @@ Uitnodigingscode: $code''';
             onPressed: () {
               if (_tabController.index == 0) {
                 _loadInvitations();
-              } else {
+              } else if (_tabController.index == 1) {
                 _loadUsers();
+              } else {
+                _loadLicenseRequests();
               }
             },
           ),
@@ -755,6 +775,9 @@ Uitnodigingscode: $code''';
 
           // TAB 2: Gebruikers & 2FA
           _buildUsersTab(theme),
+
+          // TAB 3: Toegangsaanvragen
+          _buildLicenseRequestsTab(theme),
         ],
       ),
     );
@@ -1158,6 +1181,487 @@ Uitnodigingscode: $code''';
           ),
         );
       },
+    );
+  }
+
+  Future<void> _loadLicenseRequests() async {
+    setState(() {
+      _isLoadingRequests = true;
+      _requestsError = null;
+    });
+
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      final response = await supabase
+          .from('license_requests')
+          .select('''
+            id,
+            user_id,
+            app_id,
+            reason,
+            status,
+            reviewed_at,
+            created_at,
+            profiles:user_id(id, email, first_name, last_name),
+            apps:app_id(id, name, slug)
+          ''')
+          .order('created_at', ascending: false);
+
+      setState(() {
+        _licenseRequests = List<Map<String, dynamic>>.from(response as List);
+      });
+    } catch (e) {
+      setState(() {
+        _requestsError = 'Fout bij het ophalen van toegangsaanvragen: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingRequests = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _reviewLicenseRequest(
+    String requestId,
+    String newStatus, {
+    String tier = 'basic',
+    String role = 'user',
+  }) async {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      final res = await supabase.rpc('review_license_request', params: {
+        'request_id': requestId,
+        'new_status': newStatus,
+        'assigned_tier': tier,
+        'assigned_role': role,
+      });
+
+      final success = res['success'] == true;
+      final message = res['message'] as String? ?? 'Status bijgewerkt.';
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: success
+                ? (newStatus == 'approved' ? Colors.green : Colors.orange.shade800)
+                : Colors.red,
+            content: Text(message),
+          ),
+        );
+        _loadLicenseRequests();
+        _loadUsers();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red,
+            content: Text('Fout bij beoordelen van aanvraag: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showApproveRequestDialog(Map<String, dynamic> request) {
+    final requestId = request['id'] as String;
+    final profile = request['profiles'] as Map<String, dynamic>?;
+    final app = request['apps'] as Map<String, dynamic>?;
+    final userEmail = profile?['email'] as String? ?? 'Onbekend';
+    final appName = app?['name'] as String? ?? 'Applicatie';
+
+    String selectedTier = 'basic';
+    String selectedRole = 'user';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.green),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Toegang Goedkeuren: $appName')),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Gebruiker: $userEmail', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedTier,
+                    decoration: const InputDecoration(
+                      labelText: 'Licentie Tier',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'basic', child: Text('Basic')),
+                      DropdownMenuItem(value: 'pro', child: Text('Pro')),
+                      DropdownMenuItem(value: 'enterprise', child: Text('Enterprise')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedTier = val);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Rol binnen App',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'user', child: Text('Gebruiker (User)')),
+                      DropdownMenuItem(value: 'manager', child: Text('Beheerder (Manager)')),
+                      DropdownMenuItem(value: 'admin', child: Text('Administrator (Admin)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedRole = val);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Annuleren'),
+                ),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    _reviewLicenseRequest(
+                      requestId,
+                      'approved',
+                      tier: selectedTier,
+                      role: selectedRole,
+                    );
+                  },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Goedkeuren & Activeren'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _confirmRejectRequest(Map<String, dynamic> request) {
+    final requestId = request['id'] as String;
+    final profile = request['profiles'] as Map<String, dynamic>?;
+    final app = request['apps'] as Map<String, dynamic>?;
+    final userEmail = profile?['email'] as String? ?? 'Onbekend';
+    final appName = app?['name'] as String? ?? 'Applicatie';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Toegangsaanvraag Afwijzen'),
+          content: Text('Weet je zeker dat je de aanvraag van $userEmail voor $appName wilt afwijzen?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Annuleren'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _reviewLicenseRequest(requestId, 'rejected');
+              },
+              child: const Text('Ja, Afwijzen'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLicenseRequestsTab(ThemeData theme) {
+    if (_isLoadingRequests) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_requestsError != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_requestsError!, style: TextStyle(color: theme.colorScheme.error)),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _loadLicenseRequests,
+              child: const Text('Opnieuw Proberen'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final filteredRequests = _licenseRequests.where((r) {
+      if (_selectedRequestsFilter == 'all') return true;
+      return r['status'] == _selectedRequestsFilter;
+    }).toList();
+
+    return Column(
+      children: [
+        // Filter bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          child: Row(
+            children: [
+              SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'pending',
+                    label: Text('In Afwachting ($_pendingRequestsCount)'),
+                    icon: const Icon(Icons.pending_actions),
+                  ),
+                  const ButtonSegment(
+                    value: 'approved',
+                    label: Text('Goedgekeurd'),
+                    icon: Icon(Icons.check_circle_outline),
+                  ),
+                  const ButtonSegment(
+                    value: 'rejected',
+                    label: Text('Afgewezen'),
+                    icon: Icon(Icons.cancel_outlined),
+                  ),
+                  const ButtonSegment(
+                    value: 'all',
+                    label: Text('Alles'),
+                    icon: Icon(Icons.list_alt),
+                  ),
+                ],
+                selected: {_selectedRequestsFilter},
+                onSelectionChanged: (set) {
+                  setState(() {
+                    _selectedRequestsFilter = set.first;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+
+        // Requests list
+        Expanded(
+          child: filteredRequests.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.inbox_outlined, size: 64, color: theme.colorScheme.outline),
+                      const SizedBox(height: 16),
+                      Text(
+                        _selectedRequestsFilter == 'pending'
+                            ? 'Geen openstaande toegangsaanvragen!'
+                            : 'Geen aanvragen gevonden in deze categorie.',
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  itemCount: filteredRequests.length,
+                  separatorBuilder: (_, index) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final req = filteredRequests[index];
+                    final profile = req['profiles'] as Map<String, dynamic>?;
+                    final app = req['apps'] as Map<String, dynamic>?;
+
+                    final userEmail = profile?['email'] as String? ?? 'Geen e-mail';
+                    final firstName = profile?['first_name'] as String? ?? '';
+                    final lastName = profile?['last_name'] as String? ?? '';
+                    final fullName = '$firstName $lastName'.trim();
+                    final appName = app?['name'] as String? ?? 'Onbekende App';
+                    final appSlug = app?['slug'] as String? ?? '';
+                    final reason = req['reason'] as String?;
+                    final status = req['status'] as String? ?? 'pending';
+                    final createdAtRaw = req['created_at'] as String?;
+                    final createdAt = createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null;
+
+                    Color statusColor;
+                    String statusLabel;
+                    IconData statusIcon;
+
+                    switch (status) {
+                      case 'approved':
+                        statusColor = Colors.green;
+                        statusLabel = 'Goedgekeurd';
+                        statusIcon = Icons.check_circle;
+                        break;
+                      case 'rejected':
+                        statusColor = Colors.red;
+                        statusLabel = 'Afgewezen';
+                        statusIcon = Icons.cancel;
+                        break;
+                      default:
+                        statusColor = Colors.orange.shade800;
+                        statusLabel = 'In Afwachting';
+                        statusIcon = Icons.hourglass_top;
+                        break;
+                    }
+
+                    return Card(
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: status == 'pending'
+                              ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                              : theme.colorScheme.outlineVariant,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: theme.colorScheme.primaryContainer,
+                                  foregroundColor: theme.colorScheme.onPrimaryContainer,
+                                  child: Text(
+                                    fullName.isNotEmpty
+                                        ? fullName[0].toUpperCase()
+                                        : userEmail[0].toUpperCase(),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        userEmail,
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (fullName.isNotEmpty)
+                                        Text(
+                                          fullName,
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Chip(
+                                  avatar: Icon(statusIcon, size: 16, color: statusColor),
+                                  label: Text(
+                                    statusLabel,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  backgroundColor: statusColor.withValues(alpha: 0.1),
+                                  side: BorderSide(color: statusColor.withValues(alpha: 0.3)),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 24),
+                            Row(
+                              children: [
+                                const Text('Aangevraagde App: ', style: TextStyle(fontWeight: FontWeight.w600)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondaryContainer,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '$appName ($appSlug)',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSecondaryContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (createdAt != null)
+                                  Text(
+                                    '${createdAt.day}-${createdAt.month}-${createdAt.year} ${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.outline,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (reason != null && reason.trim().isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Motivering van gebruiker:',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      reason,
+                                      style: const TextStyle(fontStyle: FontStyle.italic),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (status == 'pending') ...[
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      side: const BorderSide(color: Colors.red),
+                                    ),
+                                    onPressed: () => _confirmRejectRequest(req),
+                                    icon: const Icon(Icons.close, size: 16),
+                                    label: const Text('Afwijzen'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  FilledButton.icon(
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                                    onPressed: () => _showApproveRequestDialog(req),
+                                    icon: const Icon(Icons.check, size: 16),
+                                    label: const Text('Toegang Goedkeuren'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

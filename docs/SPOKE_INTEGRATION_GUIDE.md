@@ -13,7 +13,8 @@ Elke applicatie binnen het ecosysteem is een **Spoke**. Om wildgroei en versnipp
 1. **Geen eigen authenticatie**: Een Spoke bouwt NOOIT eigen inlog- of registratieschermen. De gebruiker logt in via de centrale Hub.
 2. **Licentie-afgedwongen toegang**: Een Spoke app kan uitsluitend worden gebruikt door gebruikers die een actieve licentie hebben in de centrale licentietabel (`public.licenses`).
 3. **Data-isolatie First**: Data van een Spoke wordt logisch strikt geïsoleerd van andere apps via een eigen PostgreSQL schema (`app_<slug>`) of via strikte Row Level Security (RLS) policies.
-4. **Centrale Ecosystem Packages**: Elke Spoke gebruikt de gedeelde packages voor styling (`schrobbedock_theme`) en storingsmeldingen (`schrobbedock_feedback`).
+4. **Centrale Ecosystem Packages**: Elke Spoke gebruikt de gedeelde packages voor authenticatie & licenties (`schrobbedock_auth`), styling (`schrobbedock_theme`) en storingsmeldingen (`schrobbedock_feedback`).
+5. **Spoke-to-Hub Alert Rule**: Stuit een Spoke op ontbrekende centrale RPC's of tabellen? Meld dit direct proactief via een overdrachtsbericht naar de Hub repo.
 
 ---
 
@@ -67,28 +68,41 @@ INSERT INTO public.apps (
 
 ---
 
-### Stap 2: Single Sign-On (SSO) & Sessiebeheer
+### Stap 2: Single Sign-On (SSO) & Licentiebewaking (`schrobbedock_auth`)
 
-Een Spoke initialiseert de standaard Supabase client met hetzelfde project URL en dezelfde Anon Key als de centrale Hub:
+Gebruik altijd de centrale package `schrobbedock_auth` om inlogstatus, licenties, het inwisselen van invite-codes én toegangsaanvragen automatisch af te handelen:
 
-```dart
-// main.dart in de Spoke app
-await Supabase.initialize(
-  url: const String.fromEnvironment('SUPABASE_URL'),
-  anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
-);
+#### 1. Toevoegen in `pubspec.yaml`:
+```yaml
+dependencies:
+  schrobbedock_auth:
+    git:
+      url: https://github.com/SchrobbeD/SchrobbeDock.git
+      path: packages/schrobbedock_auth
+      ref: auth-v1.0.0
 ```
 
-#### Sessieverificatie & Redirect:
-Wanneer een gebruiker de Spoke app opent:
-1. Controleer of er een actieve sessie is (`supabase.auth.currentSession != null`).
-2. **Indien niet ingelogd**: Redirect de bezoeker naar de centrale Hub login met een terugkeer-parameter:
-   ```dart
-   final returnUrl = Uri.base.toString();
-   final hubLoginUrl = 'https://robbedillen.be/#/login?redirect=${Uri.encodeComponent(returnUrl)}';
-   html.window.location.href = hubLoginUrl;
-   ```
-3. **Indien ingelogd**: Lees de actieve gebruiker en zijn JWT claims.
+#### 2. LicenseGate & UserMenu inzetten:
+Omwikkel het hoofdscherm van je app met `LicenseGate`. Dit vangt automatisch niet-ingelogde gebruikers (met Hub-redirect), ontbrekende licenties (met code-inwisselveld en "Toegang Aanvragen" knop voor de beheerder) en openstaande aanvragen af:
+
+```dart
+// main.dart
+MaterialApp(
+  home: const LicenseGate(
+    appSlug: 'dock_planner',
+    appName: 'Dock Planner',
+    child: HomeScreen(),
+  ),
+);
+
+// In de AppBar van HomeScreen:
+AppBar(
+  title: const Text('Dock Planner'),
+  actions: [
+    const SchrobbeDockUserMenu(), // Avatar met profiel- en uitlogmenu
+  ],
+)
+```
 
 ---
 
@@ -215,9 +229,10 @@ SchrobbeDockFeedback.showPortal(context, appSlug: 'dock_planner');
 
 Controleer voor elke nieuwe Spoke app de volgende punten:
 
-- [ ] Record aangemaakt in `public.apps` met correcte `launch_url` en GitHub repo mapping.
-- [ ] PostgREST schema permissions geconfigureerd (`GRANT USAGE ON SCHEMA ... TO authenticated`).
-- [ ] Row Level Security (RLS) policies gevalideerd tegen `public.licenses`.
+- [ ] Record aangemaakt in `public.apps` met correcte `github_repo_owner` en `github_repo_name`.
+- [ ] PostgREST schema permissions geconfigureerd (`GRANT USAGE ON SCHEMA app_<slug> TO authenticated`).
+- [ ] Row Level Security (RLS) policies gevalideerd tegen `public.user_licenses`.
+- [ ] `packages/schrobbedock_auth` geïmplementeerd (`LicenseGate` + `SchrobbeDockUserMenu`).
 - [ ] `packages/schrobbedock_theme` gepind op een stabiele `theme-vX.Y.Z` Git tag.
 - [ ] `packages/schrobbedock_feedback` geconfigureerd met de juiste `appSlug`.
-- [ ] Ongeautoriseerde bezoeken worden vriendelijk doorgestuurd naar de centrale Hub (`robbedillen.be`).
+- [ ] Ongeautoriseerde bezoeken worden via `LicenseGate` netjes afgehandeld (met `claim_invitation` en `request_app_access`).

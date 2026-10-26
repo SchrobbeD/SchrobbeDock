@@ -105,6 +105,12 @@ dependencies:
       path: packages/schrobbedock_feedback
       ref: feedback-v1.2.0
 
+  schrobbedock_auth:
+    git:
+      url: https://github.com/SchrobbeD/SchrobbeDock.git
+      path: packages/schrobbedock_auth
+      ref: auth-v1.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -475,10 +481,14 @@ Jouw taak is om deze applicatie te bouwen, te onderhouden en te laten integreren
    - **Indien er nog géén `ROADMAP.md` is**: Bied direct proactief aan om een gestructureerde `ROADMAP.md` op te zetten op basis van `docs/SPECIFICATION.md`, opgedeeld in logische fasen (bijv. Fase 1: Datamodel & RLS, Fase 2: Navigatie & Basis UI, Fase 3: Core PoC functionaliteiten, Fase 4: Validatie & Tests).
    - **Indien er wél een `ROADMAP.md` is**: Controleer welke punten openstaan en werk de status actief bij na het afronden van taken.
 
+### 🚨 SPOKE-TO-HUB ECOSYSTEEM ALERT RULE (VERPLICHT):
+Zodra je tijdens de ontwikkeling van deze Spoke app stuit op nieuwe centrale behoeften (zoals ontbrekende Supabase RPC's, nieuwe centrale Hub tabellen, permissie-aanpassingen, of uitbreidingen van de centrale packages `schrobbedock_theme`, `schrobbedock_feedback` of `schrobbedock_auth`), mag je deze NOOIT lokaal 'hacken', omzeilen of dupliceren!
+Je moet dit **altijd direct, automatisch en proactief melden** aan de gebruiker met een kant-en-klaar overdrachtsbericht dat de gebruiker direct kan voorleggen in de SchrobbeDock Hub sessie.
+
 ### 🏛️ Context & Ecosysteem Regels (Hub & Spoke):
 - Deze applicatie maakt integraal deel uit van het **SchrobbeDock Ecosysteem**.
-- **Authenticatie & Single Account**: Gebruikers loggen in via de centrale Hub (Supabase Auth). Bouw GEEN eigen inlog- of registratieschermen. Lees de actieve sessie of stuur niet-geauthenticeerde gebruikers door naar de centrale Hub (`https://robbedillen.be/#/login`).
-- **Licenties & RLS**: Toegang tot deze app vereist een actieve licentie in `public.licenses` voor `app_id: '__SLUG__'`. Data-toegang wordt strikt beveiligd via PostgreSQL Row Level Security (RLS).
+- **Authenticatie & Single Account**: Gebruikers loggen in via de centrale Hub (Supabase Auth). Bouw GEEN eigen inlog- of registratieschermen. Gebruik ALTIJD `schrobbedock_auth` (`LicenseGate` / `SchrobbeDockAuthGuard` en `SchrobbeDockUserMenu`).
+- **Licenties, Uitnodigingen & Aanvragen**: Toegang tot deze app vereist een actieve licentie in `public.user_licenses` voor `app_id` (slug: '__SLUG__'). `LicenseGate` handelt automatisch login-redirects, het inwisselen van invite-codes (`claim_invitation`) en het indienen van toegangsaanvragen (`request_app_access`) af.
 - **Thema & Styling**: Hanteer ALTIJD de officiële SchrobbeDock huisstijl via de geïmporteerde package `schrobbedock_theme` (Warm Amber `#D97706` & Deep Slate `#0F172A`). Gebruik geen ad-hoc kleuren.
 - **Feedback & Foutmeldingen**: Gebruik ALTIJD de centrale package `schrobbedock_feedback` met `appSlug: '__SLUG__'`.
 - **Database Schema**: Tabellen voor deze app horen logisch thuis in het PostgreSQL schema `app___SLUG__`.
