@@ -163,11 +163,26 @@ New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
 $SupabaseConfigPath = Join-Path $ConfigDir "supabase_config.dart"
 
 $SupabaseConfigContent = @'
+import 'package:flutter/foundation.dart';
+
 class SupabaseConfig {
-  static const String url = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://supabase.robbedillen.be',
-  );
+  /// Bepaalt dynamisch het juiste Supabase endpoint:
+  /// - Expliciete --dart-define=SUPABASE_URL heeft altijd voorrang
+  /// - In Debug mode: Android Emulator gebruikt 10.0.2.2, Web/Desktop gebruikt 127.0.0.1
+  /// - In Release mode: Cloud productie (https://supabase.robbedillen.be)
+  static String get url {
+    const configured = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+    if (configured.isNotEmpty) return configured;
+
+    if (kDebugMode) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        return 'http://10.0.2.2:54321';
+      }
+      return 'http://127.0.0.1:54321';
+    }
+
+    return 'https://supabase.robbedillen.be';
+  }
 
   static const String anonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
@@ -482,6 +497,72 @@ Wil je deze Spoke app automatisch laten bouwen en deployen (bijvoorbeeld als Web
 $GithubSetupContent = $GithubSetupTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path (Join-Path $DocsDir "GITHUB_SETUP.md") -Value $GithubSetupContent -Encoding UTF8
 
+# docs/TESTING.md
+$TestingTemplate = @'
+# Lokale Testgids & Testgebruikers: __NAME__
+
+Deze gids beschrijft hoe je de Spoke app **__NAME__** (`__SLUG__`) lokaal test binnen het SchrobbeDock ecosysteem.
+
+---
+
+## 🏛️ Hoe werkt lokale architectuur (Hub & Spoke)?
+
+1. **Supabase is het centrale backend**:
+   - Supabase draait niet "in" een specifieke app, maar als een centrale Docker stack via de SchrobbeDock hoofdrepository (`npx supabase start`).
+   - Alle authenticatie, licenties, RLS policies en data wonen in deze centrale backend.
+2. **Netwerkrouting naar Supabase**:
+   - **Web & Windows Desktop**: Verbindt automatisch met `http://127.0.0.1:54321`.
+   - **Android Emulator**: Verbindt automatisch met `http://10.0.2.2:54321` (het gateway-adres naar je host PC).
+   - *Alternatief voor emulator*: Voer via PowerShell `adb reverse tcp:54321 tcp:54321` uit.
+
+---
+
+## 👥 Beschikbare Seed Testgebruikers
+
+In `supabase/seed.sql` van SchrobbeDock zijn de volgende testaccounts voorgeconfigureerd.  
+Het wachtwoord voor **alle accounts** is: `password123`.
+
+| Gebruiker | E-mail | Standaard Rol in __NAME__ | Testscenario |
+| :--- | :--- | :--- | :--- |
+| **Super Admin** | `admin@hub.local` | `super_admin` | Beheer, licentietoekenning en inspectie in de Hub. |
+| **Test User 1** *(Jan Jansen)* | `user1@hub.local` | `pro` / `user` | **Happy Path**: Hoofdgebruiker met actieve licentie. |
+| **Test User 2** *(Sophie Peeters)* | `user2@hub.local` | `pro` / `user` | Multi-app licenties, manager rol, donker thema (`ocean_deep`). |
+| **Test User 3** *(Thomas De Smet)* | `user3@hub.local` | `pro` / `user` | Derde actieve gebruiker (groen thema). |
+| **Test User 4** *(Lukas Vermeulen)* | `user4@hub.local` | `pro` / `user` | Vierde actieve gebruiker (paars thema). |
+| **Test User 5** *(Emma Claes)* | `user5@hub.local` | `basic` / `user` | Reservespeler / Basic licentietier. |
+| **Test User 6** *(Dries Wouters)* | `user6@hub.local` | `basic` / `user` | Tweede reserve / Basic tier. |
+| **Test User 7** *(Sanne Jacobs)* | `user7@hub.local` | **GEEN** | **Unhappy Path**: Geen licentie. Test de `NoAccessView`, code-claim en "Toegang Aanvragen". |
+
+> [!NOTE]
+> Accounts die eindigen op `@hub.local` zijn in de centrale Hub en Spoke guards automatisch vrijgesteld van de verplichte MFA challenge.
+
+---
+
+## 🧪 De 4 Verplichte Autorisatiestatussen
+
+Controleer altijd of `LicenseGate` de 4 toestanden correct afhandelt:
+1. **Niet Aangemeld**: Toont `LoginRequiredView` met doorverwijzing naar Hub login.
+2. **Ingelogd Zonder Licentie**: Log in als `user7@hub.local`. Toont `NoAccessView` met veld voor invite code en knop "Toegang Aanvragen".
+3. **Openstaande Aanvraag**: Vraag toegang aan via de UI; status schakelt over naar pending banner.
+4. **Ingelogd Met Actieve Licentie**: Log in als `user1@hub.local` t/m `user4@hub.local`. Het volledige hoofdscherm opent en het profielthema wordt geladen.
+
+---
+
+## ⚡ Snelle Inloghelper voor Flutter
+
+Om tijdens debuggen op Android of desktop snel te wisselen tussen gebruikers zonder handmatige web redirects:
+
+```dart
+// Wissel van gebruiker:
+await Supabase.instance.client.auth.signInWithPassword(
+  email: 'user1@hub.local',
+  password: 'password123',
+);
+```
+'@
+$TestingContent = $TestingTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
+Set-Content -Path (Join-Path $DocsDir "TESTING.md") -Value $TestingContent -Encoding UTF8
+
 # Antigravity Rules (.agents/rules/role.md)
 $AgentDir = Join-Path $TargetDir ".agents\rules"
 New-Item -ItemType Directory -Path $AgentDir -Force | Out-Null
@@ -602,6 +683,16 @@ GRANT ALL ON ALL ROUTINES IN SCHEMA app___SLUG__ TO authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA app___SLUG__ GRANT ALL ON TABLES TO authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA app___SLUG__ GRANT ALL ON SEQUENCES TO authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA app___SLUG__ GRANT ALL ON ROUTINES TO authenticated, service_role;
+
+-- 3. Standaard testlicenties toekennen aan seed testusers (Happy Path testen)
+INSERT INTO public.user_licenses (user_id, app_id, tier, role)
+SELECT u.id, a.id, 'pro', 'user'
+FROM auth.users u, public.apps a
+WHERE a.slug = '__SLUG__' 
+  AND u.email IN ('user1@hub.local', 'user2@hub.local', 'user3@hub.local', 'user4@hub.local')
+ON CONFLICT (user_id, app_id) DO NOTHING;
+
+-- Let op: user7@hub.local blijft bewust zonder licentie voor NoAccessView tests.
 '@
 
 $MigrationSql = $MigrationTemplate.
@@ -617,12 +708,14 @@ Write-Host "Flutter Spoke App '$Name' is 100% klaar!" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "• App Locatie  : $TargetDir"
 Write-Host "• Specificatie : $TargetDir\docs\SPECIFICATION.md"
+Write-Host "• Testgids     : $TargetDir\docs\TESTING.md"
 Write-Host "• GitHub Gids  : $TargetDir\docs\GITHUB_SETUP.md"
 Write-Host "• DB Migratie  : $MigrationFile"
 Write-Host "`nVolgende stappen:"
 Write-Host "1. Plak je output uit het Gemini Notebook in: $TargetDir\docs\SPECIFICATION.md"
-Write-Host "2. Maak een lege repo aan op GitHub (https://github.com/new) genaamd '$Name'"
-Write-Host "3. Push direct via: cd $TargetDir; git remote add origin https://github.com/SchrobbeD/$Name.git; git push -u origin main"
-Write-Host "4. Open de map in Antigravity om direct met de Roadmap en PoC te starten!"
-Write-Host "5. (Optioneel) Richt CI/CD in voor automatische web deployment (zie docs/GITHUB_SETUP.md)"
+Write-Host "2. Raadpleeg $TargetDir\docs\TESTING.md voor de 4 testscenario's en 8 seed testaccounts"
+Write-Host "3. Maak een lege repo aan op GitHub (https://github.com/new) genaamd '$Name'"
+Write-Host "4. Push direct via: cd $TargetDir; git remote add origin https://github.com/SchrobbeD/$Name.git; git push -u origin main"
+Write-Host "5. Open de map in Antigravity om direct met de Roadmap en PoC te starten!"
+Write-Host "6. (Optioneel) Richt CI/CD in voor automatische web deployment (zie docs/GITHUB_SETUP.md)"
 Write-Host "==========================================================" -ForegroundColor Cyan
