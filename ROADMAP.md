@@ -27,13 +27,30 @@
     - Responsive `BottomNavigationBar` voor mobiele weergaves (< 650px).
     - Simpele, klikbare App Cards zonder ruis, met een discreet info-knopje `(i)` rechtsboven voor licentie- en appdetails in een nette popup.
   - [theme_customizer_dialog.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/widgets/theme_customizer_dialog.dart): interactieve dialog met modus-switch (Systeem/Licht/Donker), template presets en custom color picker met live preview en hex-code invoer.
-  - **Ecosysteem-brede Thema & Layout Personalisatie (Warm Amber & Slate + RobHub)**:
-  - Volledig afgerond, gevalideerd met 10/10 tests, database reset en gemerged naar `main`.
-  - Inclusief exclusief parodiethema RobHub met vergrendelde dark mode, zero-leak autorisatie in uitnodigingen en profielen.
+- **Spoke Scaffolding & Registratie van Raket**:
+  - `scripts/create_spoke.ps1` geoptimaliseerd en uitgevoerd voor Spoke app **Raket** (`raket`).
+  - Supabase database migratie [20261025224904_register_raket.sql](file:///c:/Users/robbe/Documents/SchrobbeDock/supabase/migrations/20261025224904_register_raket.sql) met dedicated schema `app_raket` en catalogusregistratie.
+  - Initialisatie van de Raket repository op `https://github.com/SchrobbeD/Raket.git`.
+- **Centrale Toegangsaanvragen (`public.license_requests`)**:
+  - Supabase migratie [20261026011500_license_requests_and_access_workflow.sql](file:///c:/Users/robbe/Documents/SchrobbeDock/supabase/migrations/20261026011500_license_requests_and_access_workflow.sql) met RLS en atomic RPC functies `request_app_access` en `review_license_request`.
+  - Nieuwe tab **"Toegangsaanvragen"** met live badge en filterbalk in [admin_invites_screen.dart](file:///c:/Users/robbe/Documents/SchrobbeDock/hub_app/lib/screens/admin_invites_screen.dart).
+- **Gedeeld Package `packages/schrobbedock_auth` (v1.0.0)**:
+  - `LicenseGate` / `SchrobbeDockAuthGuard` voor automatische login checks en licentievalidatie.
+  - `NoAccessView` met invite code inwisseling (`claim_invitation`) en toegangsaanvragen (`request_app_access`).
+  - `LoginRequiredView` en `SchrobbeDockUserMenu` voor Spoke app AppBars.
+- **Spoke-to-Hub Ecosysteem Alert Rule**:
+  - Richtlijn vastgelegd in generator, Spoke integratiegids en agent rollen.
 
 ---
 
 ## Eerstvolgende Punten
+
+### 0. End-to-End Testen & Validatie van Toegangsaanvragen & Auth Package [OPEN - VOLGENDE SESSIE]
+- **Doel**: De nieuwste developments grondig valideren in een end-to-end scenario:
+  1. **Aanvraag indienen**: Vanuit Spoke app `Raket` (of testscript) een toegangsaanvraag indienen zonder licentie via `request_app_access`.
+  2. **Admin Beoordeling**: In de centrale Hub (`/admin/invites` tab Toegangsaanvragen) de openstaande aanvraag bekijken, details inspecteren en goedkeuren (met licentietier & rol).
+  3. **Automatische Licentietoekenning**: Bevestigen dat de licentie direct geactiveerd wordt in `public.user_licenses` en `LicenseGate` de Spoke direct ontgrendelt.
+  4. **Afwijzingsflow**: Testen van het afwijzen van aanvragen en foutafhandeling bij dubbele aanvragen.
 
 ### 1. Centraal Probleem- & Feedbackmeldsysteem (`packages/schrobbedock_feedback`) [AFGEROND - v1.0.0]
 - **Doel**: Gebruikers moeten vanuit **elke Spoke app** (en de centrale Hub) laagdrempelig een probleem, bug of suggestie kunnen melden. Meldingen worden automatisch doorgestuurd als GitHub Issue naar de specifieke repository van die app.
