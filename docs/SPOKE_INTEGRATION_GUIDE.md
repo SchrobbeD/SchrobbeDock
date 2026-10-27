@@ -161,7 +161,7 @@ dependencies:
     git:
       url: https://github.com/SchrobbeD/SchrobbeDock.git
       path: packages/schrobbedock_theme
-      ref: theme-v1.0.0 # Pin altijd op een stabiele release tag!
+      ref: theme-v1.1.0 # Pin altijd op een stabiele release tag!
 ```
 
 #### 2. Themacontroller koppelen in Flutter:
@@ -225,6 +225,34 @@ SchrobbeDockFeedback.showPortal(context, appSlug: 'dock_planner');
 
 ---
 
+### Stap 6: CI/CD & Automatische Web Deployment (One.com / SFTP)
+
+Nieuwe Spoke apps die met `scripts/create_spoke.ps1` zijn gegenereerd, bevatten direct een kant-en-klare GitHub Actions workflow (`.github/workflows/deploy_web.yml`) en een Apache rewrite bestand (`web/.htaccess`).
+
+#### 1. Apache SPA Routing (`web/.htaccess`):
+Zorgt dat Flutter Web SPA routing (GoRouter) soepel werkt op Apache webservers (zoals One.com) en voorkomt 404-fouten bij direct openen of verversen van URLs:
+```apache
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  RewriteRule ^ index.html [L]
+</IfModule>
+```
+
+#### 2. Benodigde GitHub Repository Secrets:
+Configureer in GitHub onder **Settings** ➔ **Secrets and variables** ➔ **Actions**:
+* `ONE_SFTP_SERVER`: bijv. `ssh.c49x8am1a.service.one`
+* `ONE_SFTP_USER`: je SFTP gebruikersnaam / login
+* `ONE_SFTP_PASSWORD`: je SFTP wachtwoord
+* `ONE_REMOTE_PATH`: de doelmap voor het subdomein (bijv. `/www/dock-planner.robbedillen.be`)
+* `PROD_SUPABASE_URL`: `https://supabase.robbedillen.be`
+* `PROD_SUPABASE_ANON_KEY`: de openbare Supabase anon key
+
+---
+
 ## 3. Checklist voor Release & Go-Live
 
 Controleer voor elke nieuwe Spoke app de volgende punten:
@@ -233,6 +261,8 @@ Controleer voor elke nieuwe Spoke app de volgende punten:
 - [ ] PostgREST schema permissions geconfigureerd (`GRANT USAGE ON SCHEMA app_<slug> TO authenticated`).
 - [ ] Row Level Security (RLS) policies gevalideerd tegen `public.user_licenses`.
 - [ ] `packages/schrobbedock_auth` geïmplementeerd (`LicenseGate` + `SchrobbeDockUserMenu`).
-- [ ] `packages/schrobbedock_theme` gepind op een stabiele `theme-vX.Y.Z` Git tag.
+- [ ] `packages/schrobbedock_theme` gepind op een stabiele `theme-vX.Y.Z` Git tag (`theme-v1.1.0`).
 - [ ] `packages/schrobbedock_feedback` geconfigureerd met de juiste `appSlug`.
 - [ ] Ongeautoriseerde bezoeken worden via `LicenseGate` netjes afgehandeld (met `claim_invitation` en `request_app_access`).
+- [ ] Apache SPA routing configuratie (`web/.htaccess`) aanwezig.
+- [ ] GitHub Actions CI/CD pipeline (`.github/workflows/deploy_web.yml`) geconfigureerd met repository secrets.

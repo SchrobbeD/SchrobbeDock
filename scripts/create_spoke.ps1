@@ -97,7 +97,7 @@ dependencies:
     git:
       url: https://github.com/SchrobbeD/SchrobbeDock.git
       path: packages/schrobbedock_theme
-      ref: theme-v1.0.0
+      ref: theme-v1.1.0
 
   schrobbedock_feedback:
     git:
@@ -479,20 +479,25 @@ Binnen het SchrobbeDock ecosysteem hoef je in deze Spoke app **GEEN geheime toke
 
 ---
 
-## 4. CI/CD & Automatische Deployment (Optioneel / Aanbevolen)
-Wil je deze Spoke app automatisch laten bouwen en deployen (bijvoorbeeld als Web App op One.com of een andere hosting)?
+## 4. CI/CD & Automatische Web Deployment (One.com / SFTP)
+Deze Spoke applicatie is standaard voorzien van een **kant-en-klare GitHub Actions workflow** (`.github/workflows/deploy_web.yml`) en een Apache SPA rewrite configuratie (`web/.htaccess`).
 
-### Benodigde Stappen:
-1. **GitHub Repository Secrets Instellen**:
-   - Ga in GitHub naar: **Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ **New repository secret**.
-   - Voeg toe indien je SFTP deployment gebruikt:
-     - `SFTP_HOST`: bijv. `ssh.c49x8am1a.service.one`
-     - `SFTP_USER`: je SFTP SSH/gebruikersnaam
-     - `SFTP_PASSWORD`: je SFTP wachtwoord
-2. **Workflow Aanmaken (`.github/workflows/deploy_web.yml`)**:
-   - Gebruik de beproefde Hub deployment workflow als template (`flutter build web --release` en `wlixcc/SFTP-Deploy-Action`).
-3. **Apache SPA Routing (`web/.htaccess`)**:
-   - Zorg bij Apache hosting voor een `.htaccess` in de `web/` map zodat directe URL's en refreshes van routes (GoRouter) netjes herschreven worden naar `index.html` zonder 404-errors.
+### Hoe activeer je automatische deployment?
+Zodra je code naar de `main` branch pusht, bouwt en test GitHub Actions de web-app automatisch en deployt deze via SFTP naar jouw subdomein.
+
+Voeg hiervoor de volgende secrets toe in GitHub (**Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ **New repository secret**):
+
+| Secret Naam | Beschrijving | Voorbeeldwaarde |
+| :--- | :--- | :--- |
+| `ONE_SFTP_SERVER` | SFTP host van je hostingprovider | `ssh.c49x8am1a.service.one` |
+| `ONE_SFTP_USER` | SFTP gebruikersnaam / SSH login | `robbedillen.be` |
+| `ONE_SFTP_PASSWORD` | SFTP wachtwoord van je hosting | `*********` |
+| `ONE_REMOTE_PATH` | Doelmap op de hosting voor het subdomein | `/www/__SLUG__.robbedillen.be` |
+| `PROD_SUPABASE_URL` | Supabase Cloud API URL | `https://supabase.robbedillen.be` |
+| `PROD_SUPABASE_ANON_KEY` | Publieke Supabase Anon JWT key | `eyJhbGciOiJIUzI1Ni...` |
+
+> [!NOTE]
+> De `.htaccess` zorgt ervoor dat GoRouter SPA URLs direct herladen kunnen worden zonder 404-foutmeldingen op de server.
 '@
 $GithubSetupContent = $GithubSetupTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path (Join-Path $DocsDir "GITHUB_SETUP.md") -Value $GithubSetupContent -Encoding UTF8
@@ -625,6 +630,102 @@ Wanneer de gebruiker aangeeft dat de sessie stopt (bijv. *"we stoppen voor de av
 $RoleContent = $RoleTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path (Join-Path $AgentDir "role.md") -Value $RoleContent -Encoding UTF8
 
+# Web Apache SPA Routing (.htaccess)
+$WebDir = Join-Path $TargetDir "web"
+New-Item -ItemType Directory -Path $WebDir -Force | Out-Null
+$HtaccessPath = Join-Path $WebDir ".htaccess"
+
+$HtaccessContent = @'
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Serveer bestaande bestanden en directories direct (bijv. main.dart.js, favicon.png, assets)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  
+  # Leid alle overige paden door naar index.html (voor GoRouter SPA routing)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Cache-control: voorkom dat browsers verouderde versies van index.html cachen na een deploy
+<Files "index.html">
+  FileETag None
+  Header unset ETag
+  Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
+  Header set Pragma "no-cache"
+  Header set Expires "Wed, 11 Jan 1984 05:00:00 GMT"
+</Files>
+'@
+Set-Content -Path $HtaccessPath -Value $HtaccessContent -Encoding UTF8
+
+# GitHub Actions CI/CD Workflow (.github/workflows/deploy_web.yml)
+$WorkflowsDir = Join-Path $TargetDir ".github\workflows"
+New-Item -ItemType Directory -Path $WorkflowsDir -Force | Out-Null
+$DeployWebPath = Join-Path $WorkflowsDir "deploy_web.yml"
+
+$DeployWebTemplate = @'
+name: Deploy Flutter Web to one.com
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/deploy_web.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Static Analysis & Tests
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build Web Release
+        run: |
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          flutter build web --release \
+            --dart-define=SUPABASE_URL="${{ secrets.PROD_SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.PROD_SUPABASE_ANON_KEY }}" \
+            --dart-define=APP_VERSION="1.0.0+${{ github.run_number }}" \
+            --dart-define=GIT_COMMIT_SHA="${{ github.sha }}" \
+            --dart-define=BUILD_TIMESTAMP="$BUILD_TIME"
+
+      - name: Copy .htaccess to build output
+        run: cp web/.htaccess build/web/.htaccess
+
+      - name: Deploy via SFTP to one.com
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
+        with:
+          username: ${{ secrets.ONE_SFTP_USER }}
+          server: ${{ secrets.ONE_SFTP_SERVER }}
+          password: ${{ secrets.ONE_SFTP_PASSWORD }}
+          port: 22
+          local_path: './build/web/*'
+          remote_path: ${{ secrets.ONE_REMOTE_PATH }}
+          sftp_only: true
+'@
+Set-Content -Path $DeployWebPath -Value $DeployWebTemplate -Encoding UTF8
+
 # 7. Git Initialisatie & Initial Commit in de nieuwe Spoke
 Write-Host "[6/7] Git initialiseren en initiële commit aanmaken..." -ForegroundColor Green
 Push-Location $TargetDir
@@ -710,6 +811,8 @@ Write-Host "• App Locatie  : $TargetDir"
 Write-Host "• Specificatie : $TargetDir\docs\SPECIFICATION.md"
 Write-Host "• Testgids     : $TargetDir\docs\TESTING.md"
 Write-Host "• GitHub Gids  : $TargetDir\docs\GITHUB_SETUP.md"
+Write-Host "• CI/CD Workfl : $TargetDir\.github\workflows\deploy_web.yml"
+Write-Host "• Apache SPA   : $TargetDir\web\.htaccess"
 Write-Host "• DB Migratie  : $MigrationFile"
 Write-Host "`nVolgende stappen:"
 Write-Host "1. Plak je output uit het Gemini Notebook in: $TargetDir\docs\SPECIFICATION.md"
@@ -717,5 +820,5 @@ Write-Host "2. Raadpleeg $TargetDir\docs\TESTING.md voor de 4 testscenario's en 
 Write-Host "3. Maak een lege repo aan op GitHub (https://github.com/new) genaamd '$Name'"
 Write-Host "4. Push direct via: cd $TargetDir; git remote add origin https://github.com/SchrobbeD/$Name.git; git push -u origin main"
 Write-Host "5. Open de map in Antigravity om direct met de Roadmap en PoC te starten!"
-Write-Host "6. (Optioneel) Richt CI/CD in voor automatische web deployment (zie docs/GITHUB_SETUP.md)"
+Write-Host "6. CI/CD: Voeg de 6 secrets toe op GitHub voor automatische web deployment (zie docs/GITHUB_SETUP.md)"
 Write-Host "==========================================================" -ForegroundColor Cyan
