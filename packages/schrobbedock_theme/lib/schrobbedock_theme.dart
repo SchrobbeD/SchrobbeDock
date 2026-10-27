@@ -14,7 +14,13 @@ class SchrobbeDockTheme {
   static Future<void> showCustomizer(
     BuildContext context, {
     SchrobbeDockThemeController? controller,
+    bool? asBottomSheet,
   }) {
-    return ThemeCustomizerDialog.show(context, controller: controller);
+    return ThemeCustomizerDialog.show(
+      context,
+      controller: controller,
+      asBottomSheet: asBottomSheet,
+    );
   }
 }
+

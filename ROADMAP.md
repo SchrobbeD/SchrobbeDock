@@ -57,17 +57,20 @@
   3. **Admin Beoordeling in de Hub**:
      - In de Hub inloggen als `admin@hub.local` en de aanvraag van `user7` goedkeuren.
 
-### 0.1. Mobile Responsiveness Fix in `schrobbedock_theme` (Customizer Dialog) [SPOKE-TO-HUB ALERT - INGEPLAND]
+### 0.1. Mobile Responsiveness Fix in `schrobbedock_theme` (Customizer Dialog) [AFGEROND - v1.1.0]
 - **Herkomst**: Overdrachtsbericht vanuit Spoke app **Raket** (getest op Android emulator 360-400dp viewport).
-- **Probleem**: `SchrobbeDockTheme.showCustomizer(context)` veroorzaakt `RenderFlex` overflow errors op smartphones.
-- **Concrete actiepunten in `packages/schrobbedock_theme`**:
+- **Probleem**: `SchrobbeDockTheme.showCustomizer(context)` veroorzaakte `RenderFlex` overflow errors op smartphones.
+- **Geïmplementeerde Oplossingen in `packages/schrobbedock_theme` (v1.1.0)**:
   1. **Dialoog Form Factor**:
-     - Laat `ThemeCustomizerDialog.show(context)` op schermen < 600px (`MediaQuery.sizeOf(context).width < 600`) openen als een `showModalBottomSheet(isScrollControlled: true, useSafeArea: true)` met afgeronde bovenhoeken. Op desktop/tablet blijft het een `Dialog`.
+     - `ThemeCustomizerDialog.show(context)` en `SchrobbeDockTheme.showCustomizer(context)` openen op schermen < 600px (`MediaQuery.sizeOf(context).width < 600`) automatisch als een `showModalBottomSheet(isScrollControlled: true, useSafeArea: true)` met afgeronde bovenhoeken en drag handle. Op desktop/tablet blijft het een `Dialog`.
   2. **Weergavemodus SegmentedButton**:
-     - Voorkom overflow aan de rechterrand door compacte `visualDensity: VisualDensity.compact` te gebruiken en/of kortere labels/alleen icons op smalle viewports.
-  3. **Sectie 'Mijn Opgeslagen Thema\'s'**:
-     - Vervang de `Row` met het label en de knop `+ Thema Opslaan` door een `Wrap` (of zet de knop onder het label of gebruik een compact `IconButton`).
-  4. **Release Tag**: Na implementatie en tests een nieuwe patch/minor tag publiceren (`theme-v1.1.0`), CHANGELOG bijwerken en updaten in Spoke apps.
+     - `visualDensity: VisualDensity.compact` en compacte labels (`Donker` i.p.v. `Donker (Slate)` op mobiel) voorkomen rechterrand-overflows.
+  3. **Responsive Secties & Wrap**:
+     - *Mijn Opgeslagen Thema's* en *Colorpicker* headers omgezet van `Row` naar `Wrap`.
+     - `ColorPicker` dynamisch begrensd via `LayoutBuilder` (clamped op `constraints.maxWidth` voor schermen < 360px).
+     - Footer herstelknop voorzien van `Flexible` en compacte tekst.
+     - ChoiceChips voorzien van compacte labels (`Primair` en `Secundair`).
+  4. **Geautomatiseerde Testdekking**: Nieuwe unit- en widget tests in `test/theme_customizer_dialog_test.dart` (alle 14 package tests en 21 Hub tests geslaagd). Release tag `theme-v1.1.0` voorbereid.
 
 ### 1. Centraal Probleem- & Feedbackmeldsysteem (`packages/schrobbedock_feedback`) [AFGEROND - v1.0.0]
 - **Doel**: Gebruikers moeten vanuit **elke Spoke app** (en de centrale Hub) laagdrempelig een probleem, bug of suggestie kunnen melden. Meldingen worden automatisch doorgestuurd als GitHub Issue naar de specifieke repository van die app.

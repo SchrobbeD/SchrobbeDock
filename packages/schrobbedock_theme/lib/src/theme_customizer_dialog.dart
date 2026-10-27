@@ -5,19 +5,41 @@ import '../schrobbedock_theme_riverpod.dart';
 
 class ThemeCustomizerDialog extends ConsumerStatefulWidget {
   final SchrobbeDockThemeController? controller;
+  final bool? asBottomSheet;
 
   const ThemeCustomizerDialog({
     super.key,
     this.controller,
+    this.asBottomSheet,
   });
 
   static Future<void> show(
     BuildContext context, {
     SchrobbeDockThemeController? controller,
+    bool? asBottomSheet,
   }) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final useBottomSheet = asBottomSheet ?? isMobile;
+
+    if (useBottomSheet) {
+      return showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => ThemeCustomizerDialog(
+          controller: controller,
+          asBottomSheet: true,
+        ),
+      );
+    }
+
     return showDialog(
       context: context,
-      builder: (context) => ThemeCustomizerDialog(controller: controller),
+      builder: (context) => ThemeCustomizerDialog(
+        controller: controller,
+        asBottomSheet: false,
+      ),
     );
   }
 
@@ -214,214 +236,279 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
       }
     }
 
+    final size = MediaQuery.sizeOf(context);
+    final isMobile = size.width < 600;
+    final isSheet = widget.asBottomSheet ?? isMobile;
+
+    final dialogBody = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isSheet)
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+        // Header
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: prefs.primaryColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.palette_outlined,
+                color: prefs.primaryColor,
+                size: isMobile ? 20 : 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isMobile
+                        ? 'Uiterlijk & Thema'
+                        : 'Uiterlijk & Thema Personalisatie',
+                    style: (isMobile
+                            ? theme.textTheme.titleSmall
+                            : theme.textTheme.titleMedium)
+                        ?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    isMobile
+                        ? 'Stel weergavemodus in en kies kleuren.'
+                        : 'Stel weergavemodus in en creëer eigen thema\'s met de colorpicker.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Weergavemodus SegmentedButton
+        if (isRobHub)
+          Container(
+            width: double.infinity,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141416),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFFFFA31A).withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.dark_mode,
+                  size: 18,
+                  color: Color(0xFFFFA31A),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'RobHub is exclusief vergrendeld op Pitch-Black Donker thema.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFFFA31A),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color:
+                        const Color(0xFFFFA31A).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'DONKER',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFFA31A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<ThemeMode>(
+              style: SegmentedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+              segments: [
+                const ButtonSegment(
+                  value: ThemeMode.system,
+                  icon: Icon(Icons.brightness_auto, size: 16),
+                  label: Text('Systeem'),
+                ),
+                const ButtonSegment(
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode, size: 16),
+                  label: Text('Licht'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  icon: const Icon(Icons.dark_mode, size: 16),
+                  label: Text(isMobile ? 'Donker' : 'Donker (Slate)'),
+                ),
+              ],
+              selected: {prefs.themeMode},
+              onSelectionChanged: (selected) {
+                onSetThemeMode(selected.first);
+              },
+            ),
+          ),
+        const SizedBox(height: 14),
+
+        // Tabs
+        TabBar(
+          controller: _tabController,
+          labelColor: prefs.primaryColor,
+          indicatorColor: prefs.primaryColor,
+          tabs: [
+            Tab(
+              icon: const Icon(Icons.dashboard_customize_outlined,
+                  size: 18),
+              text:
+                  'Thema\'s (${prefs.savedThemes.length + availablePresets.length})',
+            ),
+            Tab(
+              icon: const Icon(Icons.colorize, size: 18),
+              text: isMobile ? 'Colorpicker' : 'Interactieve Colorpicker',
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Tab Views
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildThemesTab(
+                theme: theme,
+                prefs: prefs,
+                availablePresets: availablePresets,
+                onApplyPreset: onApplyPreset,
+                onApplySavedTheme: onApplySavedTheme,
+                onDeleteSavedTheme: onDeleteSavedTheme,
+                onSaveTheme: onSaveCustomTheme,
+              ),
+              _buildColorPickerTab(
+                theme: theme,
+                prefs: prefs,
+                isMobile: isMobile,
+                onSaveTheme: onSaveCustomTheme,
+                onSetColors: onSetCustomColors,
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+        const Divider(),
+        const SizedBox(height: 8),
+
+        // Footer
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () {
+                  const defaultPreset = ThemePresets.amberRust;
+                  onApplyPreset(defaultPreset);
+                  setState(() {
+                    _currentPrimary = defaultPreset.primaryColor;
+                    _currentSecondary = defaultPreset.secondaryColor;
+                  });
+                },
+                icon: const Icon(Icons.restart_alt, size: 16),
+                label: Text(
+                  isMobile ? 'Herstel Standaard' : 'Herstel Warm Amber',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Klaar'),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    if (isSheet) {
+      return Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: size.height * 0.88,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: dialogBody,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 620, maxHeight: 760),
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: prefs.primaryColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.palette_outlined,
-                      color: prefs.primaryColor,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Uiterlijk & Thema Personalisatie',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'Stel weergavemodus in en creëer eigen thema\'s met de colorpicker.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Weergavemodus SegmentedButton
-              if (isRobHub)
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF141416),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFFFFA31A).withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.dark_mode,
-                        size: 18,
-                        color: Color(0xFFFFA31A),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'RobHub is exclusief vergrendeld op Pitch-Black Donker thema.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: const Color(0xFFFFA31A),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFFFFA31A).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'DONKER',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFFFA31A),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SegmentedButton<ThemeMode>(
-                    segments: const [
-                      ButtonSegment(
-                        value: ThemeMode.system,
-                        icon: Icon(Icons.brightness_auto, size: 16),
-                        label: Text('Systeem'),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.light,
-                        icon: Icon(Icons.light_mode, size: 16),
-                        label: Text('Licht'),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.dark,
-                        icon: Icon(Icons.dark_mode, size: 16),
-                        label: Text('Donker (Slate)'),
-                      ),
-                    ],
-                    selected: {prefs.themeMode},
-                    onSelectionChanged: (selected) {
-                      onSetThemeMode(selected.first);
-                    },
-                  ),
-                ),
-              const SizedBox(height: 14),
-
-              // Tabs
-              TabBar(
-                controller: _tabController,
-                labelColor: prefs.primaryColor,
-                indicatorColor: prefs.primaryColor,
-                tabs: [
-                  Tab(
-                    icon: const Icon(Icons.dashboard_customize_outlined,
-                        size: 18),
-                    text:
-                        'Thema\'s (${prefs.savedThemes.length + availablePresets.length})',
-                  ),
-                  const Tab(
-                    icon: Icon(Icons.colorize, size: 18),
-                    text: 'Interactieve Colorpicker',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Tab Views
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildThemesTab(
-                      theme: theme,
-                      prefs: prefs,
-                      availablePresets: availablePresets,
-                      onApplyPreset: onApplyPreset,
-                      onApplySavedTheme: onApplySavedTheme,
-                      onDeleteSavedTheme: onDeleteSavedTheme,
-                      onSaveTheme: onSaveCustomTheme,
-                    ),
-                    _buildColorPickerTab(
-                      theme: theme,
-                      prefs: prefs,
-                      onSaveTheme: onSaveCustomTheme,
-                      onSetColors: onSetCustomColors,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-              const Divider(),
-              const SizedBox(height: 8),
-
-              // Footer
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      const defaultPreset = ThemePresets.amberRust;
-                      onApplyPreset(defaultPreset);
-                      setState(() {
-                        _currentPrimary = defaultPreset.primaryColor;
-                        _currentSecondary = defaultPreset.secondaryColor;
-                      });
-                    },
-                    icon: const Icon(Icons.restart_alt, size: 16),
-                    label: const Text('Herstel Warm Amber'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Klaar'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          child: dialogBody,
         ),
       ),
     );
@@ -440,8 +527,11 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               Text(
                 'MIJN OPGESLAGEN THEMA\'S',
@@ -452,7 +542,8 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                 ),
               ),
               FilledButton.tonalIcon(
-                onPressed: () => _showSaveThemeDialog(context, prefs, onSaveTheme),
+                onPressed: () =>
+                    _showSaveThemeDialog(context, prefs, onSaveTheme),
                 icon: const Icon(Icons.add, size: 16),
                 label: const Text('Thema Opslaan'),
                 style: FilledButton.styleFrom(
@@ -718,6 +809,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
   Widget _buildColorPickerTab({
     required ThemeData theme,
     required ThemePreferences prefs,
+    required bool isMobile,
     required Future<void> Function(String name) onSaveTheme,
     required Future<void> Function(Color primary, Color secondary) onSetColors,
   }) {
@@ -725,11 +817,14 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               Text(
-                'KIES ONDERDEEL OM AAN TE PASSEN:',
+                isMobile ? 'KIES ONDERDEEL:' : 'KIES ONDERDEEL OM AAN TE PASSEN:',
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.1,
@@ -737,7 +832,8 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                 ),
               ),
               FilledButton.icon(
-                onPressed: () => _showSaveThemeDialog(context, prefs, onSaveTheme),
+                onPressed: () =>
+                    _showSaveThemeDialog(context, prefs, onSaveTheme),
                 icon: const Icon(Icons.bookmark_add, size: 16),
                 label: const Text('Opslaan als Thema'),
                 style: FilledButton.styleFrom(
@@ -752,6 +848,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
             child: Row(
               children: [
                 ChoiceChip(
+                  visualDensity: VisualDensity.compact,
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -764,7 +861,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Text('Primaire Accentkleur (${colorToHex(_currentPrimary)})'),
+                      Text('Primair (${colorToHex(_currentPrimary)})'),
                     ],
                   ),
                   selected: _activeColorTarget == 0,
@@ -774,6 +871,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
+                  visualDensity: VisualDensity.compact,
                   label: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -786,7 +884,7 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Text('Secundaire Kleur (${colorToHex(_currentSecondary)})'),
+                      Text('Secundair (${colorToHex(_currentSecondary)})'),
                     ],
                   ),
                   selected: _activeColorTarget == 1,
@@ -809,28 +907,36 @@ class _ThemeCustomizerDialogState extends ConsumerState<ThemeCustomizerDialog>
                 color: theme.colorScheme.outline.withValues(alpha: 0.3),
               ),
             ),
-            child: ColorPicker(
-              pickerColor:
-                  _activeColorTarget == 0 ? _currentPrimary : _currentSecondary,
-              onColorChanged: (newColor) {
-                setState(() {
-                  if (_activeColorTarget == 0) {
-                    _currentPrimary = newColor;
-                  } else {
-                    _currentSecondary = newColor;
-                  }
-                });
-                onSetColors(_currentPrimary, _currentSecondary);
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final pickerWidth = constraints.maxWidth < 320
+                    ? constraints.maxWidth
+                    : 320.0;
+                return ColorPicker(
+                  pickerColor: _activeColorTarget == 0
+                      ? _currentPrimary
+                      : _currentSecondary,
+                  onColorChanged: (newColor) {
+                    setState(() {
+                      if (_activeColorTarget == 0) {
+                        _currentPrimary = newColor;
+                      } else {
+                        _currentSecondary = newColor;
+                      }
+                    });
+                    onSetColors(_currentPrimary, _currentSecondary);
+                  },
+                  colorPickerWidth: pickerWidth,
+                  pickerAreaHeightPercent: 0.5,
+                  enableAlpha: false,
+                  displayThumbColor: true,
+                  paletteType: PaletteType.hsvWithHue,
+                  labelTypes: const [
+                    ColorLabelType.hex,
+                    ColorLabelType.rgb,
+                  ],
+                );
               },
-              colorPickerWidth: 320,
-              pickerAreaHeightPercent: 0.5,
-              enableAlpha: false,
-              displayThumbColor: true,
-              paletteType: PaletteType.hsvWithHue,
-              labelTypes: const [
-                ColorLabelType.hex,
-                ColorLabelType.rgb,
-              ],
             ),
           ),
         ],
