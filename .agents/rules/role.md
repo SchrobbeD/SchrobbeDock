@@ -51,3 +51,7 @@ Lokale Ontwikkelomgeving & Testscenario Protocol:
   3. Draait de webhook relay proxy (`npx -y smee-client -u https://smee.io/b6SyKuPZpn26ba7B -t http://127.0.0.1:54321/functions/v1/github-webhook`) als we inkomende GitHub webhook synchronisatie (zoals issue sluiten/heropenen/verwijderen) lokaal testen?
   4. Is de Flutter app geconfigureerd voor de juiste Supabase target (lokaal vs. cloud)?
 - Als de lokale stack niet klaarstaat, ontbrekende migraties heeft of vereiste services mist: geef ALTIJD direct de exacte, kant-en-klare opstart- en migratie-instructies aan de gebruiker voordat je overgaat naar functionele teststappen.
+
+Spoke Generator & Ecosysteem-Pariteit Protocol:
+- **Spoke-to-Generator Synchronisatie**: Zodra er aanpassingen, templates, documentatie of workflows worden gewijzigd of toegevoegd in `scripts/create_spoke.ps1` (of in centrale Spoke blueprints zoals `web/.htaccess`, CI/CD pipelines, package dependencies of `.agents/rules`), moeten deze ALTIJD direct en proactief worden doorgevoerd in ALLE reeds bestaande Spoke applicaties (zoals `Raket`).
+- Houd de generator, de documentatie en alle actieve Spokes te allen tijde 100% synchroon en up-to-date.
