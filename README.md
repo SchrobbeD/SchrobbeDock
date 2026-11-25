@@ -167,8 +167,9 @@ Gedeelde packages in `packages/` worden door externe Spoke apps geïmporteerd vi
 
 | Package | Tag Conventie | Huidige Release |
 | :--- | :--- | :--- |
-| **`schrobbedock_theme`** | `theme-vX.Y.Z` | `theme-v1.0.0` |
-| **`schrobbedock_feedback`** | `feedback-vX.Y.Z` | `feedback-v1.2.0` |
+| **`schrobbedock_theme`** | `theme-vX.Y.Z` | `theme-v1.1.0` |
+| **`schrobbedock_feedback`** | `feedback-vX.Y.Z` | `feedback-v1.3.0` |
+| **`schrobbedock_auth`** | `auth-vX.Y.Z` | `auth-v1.0.1` |
 
 ---
 

@@ -1,36 +1,36 @@
 # SchrobbeDock Spoke Generator - Maakt met 1 commando een nieuwe Flutter Spoke app aan.
 
 param(
-    [Parameter(Mandatory = $true, Position = 0)]
-    [string]$Name,
+  [Parameter(Mandatory = $true, Position = 0)]
+  [string]$Name,
 
-    [Parameter(Mandatory = $false)]
-    [string]$Slug,
+  [Parameter(Mandatory = $false)]
+  [string]$Slug,
 
-    [Parameter(Mandatory = $false)]
-    [string]$Description,
+  [Parameter(Mandatory = $false)]
+  [string]$Description,
 
-    [Parameter(Mandatory = $false)]
-    [string]$LaunchUrl,
+  [Parameter(Mandatory = $false)]
+  [string]$LaunchUrl,
 
-    [Parameter(Mandatory = $false)]
-    [switch]$Force
+  [Parameter(Mandatory = $false)]
+  [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
 
 # 1. Bepaal Slug en Mappen
 if ([string]::IsNullOrWhiteSpace($Slug)) {
-    # Converteer CamelCase ("WinterRaket") naar snake_case ("winter_raket") via case-sensitive -creplace
-    $Slug = ($Name -creplace '([a-z0-9])([A-Z])', '$1_$2').ToLower().Trim() -replace '[^a-z0-9]+', '_' -replace '^_+|_+$', ''
+  # Converteer CamelCase ("WinterRaket") naar snake_case ("winter_raket") via case-sensitive -creplace
+  $Slug = ($Name -creplace '([a-z0-9])([A-Z])', '$1_$2').ToLower().Trim() -replace '[^a-z0-9]+', '_' -replace '^_+|_+$', ''
 }
 
 if ([string]::IsNullOrWhiteSpace($Description)) {
-    $Description = "Spoke applicatie $Name binnen het SchrobbeDock ecosysteem."
+  $Description = "Spoke applicatie $Name binnen het SchrobbeDock ecosysteem."
 }
 
 if ([string]::IsNullOrWhiteSpace($LaunchUrl)) {
-    $LaunchUrl = "https://$($Slug -replace '_', '-').robbedillen.be"
+  $LaunchUrl = "https://$($Slug -replace '_', '-').robbedillen.be"
 }
 
 $RepoRoot = (Get-Item $PSScriptRoot).Parent.FullName
@@ -48,28 +48,28 @@ Write-Host "• Launch URL   : $LaunchUrl"
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 if (Test-Path $TargetDir) {
-    # Zorg dat de casing op Windows NTFS exact overeenkomt met $Name
-    $actualDir = Get-Item $TargetDir
-    if ($actualDir.Name -cne $Name) {
-        $tempDirName = "${Name}_temp_casing"
-        Rename-Item -Path $actualDir.FullName -NewName $tempDirName -ErrorAction SilentlyContinue
-        Rename-Item -Path (Join-Path $ParentDir $tempDirName) -NewName $Name -ErrorAction SilentlyContinue
-    }
+  # Zorg dat de casing op Windows NTFS exact overeenkomt met $Name
+  $actualDir = Get-Item $TargetDir
+  if ($actualDir.Name -cne $Name) {
+    $tempDirName = "${Name}_temp_casing"
+    Rename-Item -Path $actualDir.FullName -NewName $tempDirName -ErrorAction SilentlyContinue
+    Rename-Item -Path (Join-Path $ParentDir $tempDirName) -NewName $Name -ErrorAction SilentlyContinue
+  }
 
-    $existingItems = Get-ChildItem -Path $TargetDir -Force
-    if ($existingItems.Count -gt 0 -and -not $Force) {
-        Write-Error "Map '$TargetDir' bestaat al en is niet leeg! Gebruik -Force om te overschrijven of kies een andere naam."
-        exit 1
-    }
-    if ($Force) {
-        Write-Host "⚠️ Map '$TargetDir' bestaat al: overschrijven geforceerd (-Force)..." -ForegroundColor Yellow
-        Remove-Item -Path "$TargetDir\*" -Recurse -Force -ErrorAction SilentlyContinue
-    }
+  $existingItems = Get-ChildItem -Path $TargetDir -Force
+  if ($existingItems.Count -gt 0 -and -not $Force) {
+    Write-Error "Map '$TargetDir' bestaat al en is niet leeg! Gebruik -Force om te overschrijven of kies een andere naam."
+    exit 1
+  }
+  if ($Force) {
+    Write-Host "⚠️ Map '$TargetDir' bestaat al: overschrijven geforceerd (-Force)..." -ForegroundColor Yellow
+    Remove-Item -Path "$TargetDir\*" -Recurse -Force -ErrorAction SilentlyContinue
+  }
 }
 
 # 2. Flutter Project Initialisatie
 Write-Host "`n[1/7] Flutter multi-platform project aanmaken..." -ForegroundColor Green
-flutter create --org be.robbedillen --platforms web,windows,android --project-name $Slug $TargetDir
+flutter create --org be.robbedillen --platforms web, windows, android --project-name $Slug $TargetDir
 
 # 3. pubspec.yaml Configureren met SchrobbeDock Packages
 Write-Host "[2/7] pubspec.yaml configureren met centrale packages en dependencies..." -ForegroundColor Green
@@ -82,15 +82,15 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.4.0 <4.0.0'
+  sdk: ^3.10.0
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: ^2.5.1
-  go_router: ^14.2.0
-  supabase_flutter: ^2.8.0
-  shared_preferences: ^2.2.3
+  flutter_riverpod: ^3.4.3
+  go_router: ^18.0.1
+  supabase_flutter: ^2.17.2
+  shared_preferences: ^2.5.5
 
   # SchrobbeDock Gedeelde Packages (Git Dependencies)
   schrobbedock_theme:
@@ -103,18 +103,18 @@ dependencies:
     git:
       url: https://github.com/SchrobbeD/SchrobbeDock.git
       path: packages/schrobbedock_feedback
-      ref: feedback-v1.2.0
+      ref: feedback-v1.3.0
 
   schrobbedock_auth:
     git:
       url: https://github.com/SchrobbeD/SchrobbeDock.git
       path: packages/schrobbedock_auth
-      ref: auth-v1.0.0
+      ref: auth-v1.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
@@ -184,6 +184,24 @@ class SupabaseConfig {
     return 'https://supabase.robbedillen.be';
   }
 
+  /// Bepaalt dynamisch de URL van de centrale SchrobbeDock Hub:
+  /// - Expliciete --dart-define=HUB_URL heeft altijd voorrang
+  /// - In Debug mode: Android Emulator gebruikt 10.0.2.2:3000, Web/Desktop gebruikt localhost:3000
+  /// - In Release mode: Cloud productie (https://robbedillen.be)
+  static String get hubUrl {
+    const configured = String.fromEnvironment('HUB_URL', defaultValue: '');
+    if (configured.isNotEmpty) return configured;
+
+    if (kDebugMode) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        return 'http://10.0.2.2:3000';
+      }
+      return 'http://localhost:3000';
+    }
+
+    return 'https://robbedillen.be';
+  }
+
   static const String anonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
     defaultValue:
@@ -193,30 +211,38 @@ class SupabaseConfig {
 '@
 Set-Content -Path $SupabaseConfigPath -Value $SupabaseConfigContent -Encoding UTF8
 
-# 5. Schermen en SSO-guards genereren (lib/main.dart)
-Write-Host "[4/7] Schermen, thema en SSO-guards genereren (lib/main.dart)..." -ForegroundColor Green
+# 5. Schermen, thema en LicenseGate genereren (lib/main.dart & test/widget_test.dart)
+Write-Host "[4/7] Schermen, thema, LicenseGate en rooktest genereren..." -ForegroundColor Green
 $MainDartPath = Join-Path $TargetDir "lib\main.dart"
 
 $MainDartTemplate = @'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:schrobbedock_auth/schrobbedock_auth.dart';
 import 'package:schrobbedock_feedback/schrobbedock_feedback.dart';
 import 'package:schrobbedock_theme/schrobbedock_theme.dart';
+import 'package:schrobbedock_theme/schrobbedock_theme_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
     url: SupabaseConfig.url,
-    anonKey: SupabaseConfig.anonKey,
+    publishableKey: SupabaseConfig.anonKey,
   );
 
+  final sharedPreferences = await SharedPreferences.getInstance();
+
   runApp(
-    const ProviderScope(
-      child: SpokeApp(),
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+      ],
+      child: const SpokeApp(),
     ),
   );
 }
@@ -224,22 +250,20 @@ void main() async {
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
-    redirect: (context, state) {
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) {
-        // Indien niet ingelogd: redirect naar de centrale Hub
-        return '/login-required';
-      }
-      return null;
-    },
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const SpokeHomeScreen(),
-      ),
-      GoRoute(
-        path: '/login-required',
-        builder: (context, state) => const LoginRequiredScreen(),
+      ShellRoute(
+        builder: (context, state, child) => LicenseGate(
+          appSlug: '__SLUG__',
+          appName: '__NAME__',
+          hubUrl: SupabaseConfig.hubUrl,
+          child: child,
+        ),
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const SpokeHomeScreen(),
+          ),
+        ],
       ),
     ],
   );
@@ -251,139 +275,63 @@ class SpokeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themePrefs = ref.watch(themePreferencesProvider);
 
     return MaterialApp.router(
       title: '__NAME__',
       debugShowCheckedModeBanner: false,
-      theme: SchrobbeDockTheme.buildLightTheme(),
-      darkTheme: SchrobbeDockTheme.buildDarkTheme(),
-      themeMode: ThemeMode.system,
+      theme: AppTheme.buildLightTheme(themePrefs),
+      darkTheme: AppTheme.buildDarkTheme(themePrefs),
+      themeMode: themePrefs.preset == 'rob_hub'
+          ? ThemeMode.dark
+          : themePrefs.themeMode,
       routerConfig: router,
     );
   }
 }
 
-class SpokeHomeScreen extends StatefulWidget {
+class SpokeHomeScreen extends StatelessWidget {
   const SpokeHomeScreen({super.key});
-
-  @override
-  State<SpokeHomeScreen> createState() => _SpokeHomeScreenState();
-}
-
-class _SpokeHomeScreenState extends State<SpokeHomeScreen> {
-  bool _isLoading = true;
-  bool _hasLicense = false;
-  String? _userRole;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkLicense();
-  }
-
-  Future<void> _checkLicense() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-
-    try {
-      final response = await Supabase.instance.client
-          .from('licenses')
-          .select('role, is_active')
-          .eq('app_id', '__SLUG__')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-      setState(() {
-        _hasLicense = response != null && response['is_active'] == true;
-        _userRole = response?['role'] as String?;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final userRole = context.userLicenseRole ?? 'user';
+    final userTier = context.userLicenseTier ?? 'standard';
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('__NAME__'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.palette_outlined),
+            tooltip: 'Uiterlijk & Thema',
+            onPressed: () => SchrobbeDockTheme.showCustomizer(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: 'Probleem of suggestie melden',
-            onPressed: () => SchrobbeDockFeedback.show(context, appSlug: '__SLUG__'),
+            onPressed: () => SchrobbeDockFeedback.show(
+              context,
+              appSlug: '__SLUG__',
+            ),
           ),
+          SchrobbeDockUserMenu(hubUrl: SupabaseConfig.hubUrl),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : !_hasLicense
-              ? Center(
-                  child: Card(
-                    margin: const EdgeInsets.all(24),
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.lock_outline, size: 64, color: theme.colorScheme.error),
-                          const SizedBox(height: 16),
-                          Text('Geen actieve licentie', style: theme.textTheme.headlineSmall),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Je account heeft momenteel geen geldige licentie voor deze app.',
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              : Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.verified, size: 64, color: theme.colorScheme.primary),
-                      const SizedBox(height: 16),
-                      Text('Welkom in __NAME__', style: theme.textTheme.headlineMedium),
-                      const SizedBox(height: 8),
-                      Text('Rol: ${_userRole ?? "Gebruiker"}'),
-                    ],
-                  ),
-                ),
-    );
-  }
-}
-
-class LoginRequiredScreen extends StatelessWidget {
-  const LoginRequiredScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.account_circle_outlined, size: 64),
-            const SizedBox(height: 16),
-            const Text('Aanmelden Vereist', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text('Log eerst in via de centrale SchrobbeDock Hub.'),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {
-                // In web context: redirect naar Hub login
-              },
-              icon: const Icon(Icons.login),
-              label: const Text('Naar Centrale Hub Login'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.verified, size: 64, color: theme.colorScheme.primary),
+              const SizedBox(height: 16),
+              Text('Welkom in __NAME__', style: theme.textTheme.headlineMedium),
+              const SizedBox(height: 8),
+              Text('Rol: $userRole  •  Licentie: $userTier'),
+            ],
+          ),
         ),
       ),
     );
@@ -392,6 +340,36 @@ class LoginRequiredScreen extends StatelessWidget {
 '@
 $MainDartContent = $MainDartTemplate.Replace('__NAME__', $Name).Replace('__SLUG__', $Slug)
 Set-Content -Path $MainDartPath -Value $MainDartContent -Encoding UTF8
+
+# test/widget_test.dart
+$TestDir = Join-Path $TargetDir "test"
+New-Item -ItemType Directory -Path $TestDir -Force | Out-Null
+$WidgetTestPath = Join-Path $TestDir "widget_test.dart"
+
+$WidgetTestTemplate = @'
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:schrobbedock_auth/schrobbedock_auth.dart';
+import 'package:schrobbedock_theme/schrobbedock_theme.dart';
+
+void main() {
+  testWidgets('__NAME__ smoke test renders LoginRequiredView with SchrobbeDock theme', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.buildLightTheme(ThemePreferences.defaultPreferences),
+        home: const LoginRequiredView(
+          appName: '__NAME__',
+        ),
+      ),
+    );
+
+    expect(find.text('Aanmelden Vereist'), findsOneWidget);
+    expect(find.textContaining('__NAME__'), findsOneWidget);
+  });
+}
+'@
+$WidgetTestContent = $WidgetTestTemplate.Replace('__NAME__', $Name)
+Set-Content -Path $WidgetTestPath -Value $WidgetTestContent -Encoding UTF8
 
 # 6. Documentatie (SPECIFICATION.md & GITHUB_SETUP.md) & Antigravity Regels
 Write-Host "[5/7] Documentatie & Antigravity regels genereren..." -ForegroundColor Green
@@ -730,17 +708,19 @@ Set-Content -Path $DeployWebPath -Value $DeployWebTemplate -Encoding UTF8
 Write-Host "[6/7] Git initialiseren en initiële commit aanmaken..." -ForegroundColor Green
 Push-Location $TargetDir
 try {
-    git init -b main 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        git init
-        git branch -M main
-    }
-    git add .
-    git commit -m "feat: initial spoke scaffold for $Name from SchrobbeDock generator"
-} catch {
-    Write-Warning "Git init waarschuwing: $_"
-} finally {
-    Pop-Location
+  git init -b main 2>$null
+  if ($LASTEXITCODE -ne 0) {
+    git init
+    git branch -M main
+  }
+  git add .
+  git commit -m "feat: initial spoke scaffold for $Name from SchrobbeDock generator"
+}
+catch {
+  Write-Warning "Git init waarschuwing: $_"
+}
+finally {
+  Pop-Location
 }
 
 # 8. Automatisch Supabase Registratiemigratie Aanmaken in SchrobbeDock
@@ -797,12 +777,43 @@ ON CONFLICT (user_id, app_id) DO NOTHING;
 '@
 
 $MigrationSql = $MigrationTemplate.
-    Replace('__NAME__', $Name).
-    Replace('__SLUG__', $Slug).
-    Replace('__DESCRIPTION__', $Description).
-    Replace('__LAUNCH_URL__', $LaunchUrl)
+Replace('__NAME__', $Name).
+Replace('__SLUG__', $Slug).
+Replace('__DESCRIPTION__', $Description).
+Replace('__LAUNCH_URL__', $LaunchUrl)
 
 Set-Content -Path $MigrationFile -Value $MigrationSql -Encoding UTF8
+
+# 9. Dedicated schema automatisch exposen in supabase/config.toml (PostgREST lokaal)
+$SchemaName = "app_$Slug"
+$ConfigTomlPath = Join-Path $RepoRoot "supabase\config.toml"
+if (Test-Path $ConfigTomlPath) {
+    $configRaw = Get-Content -Path $ConfigTomlPath -Raw -Encoding UTF8
+    $schemaPattern = '(?m)^(schemas\s*=\s*\[)([^\]]*)(\])'
+    if ($configRaw -match $schemaPattern) {
+        $currentSchemas = $Matches[2]
+        if ($currentSchemas -notmatch "(?i)`"$([regex]::Escape($SchemaName))`"") {
+            $updatedConfig = [regex]::Replace(
+                $configRaw,
+                $schemaPattern,
+                {
+                    param($m)
+                    $inner = $m.Groups[2].Value.Trim()
+                    if ([string]::IsNullOrWhiteSpace($inner)) {
+                        return "$($m.Groups[1].Value)`"$SchemaName`"$($m.Groups[3].Value)"
+                    }
+                    return "$($m.Groups[1].Value)$inner, `"$SchemaName`"$($m.Groups[3].Value)"
+                }
+            )
+            [System.IO.File]::WriteAllText($ConfigTomlPath, $updatedConfig, [System.Text.UTF8Encoding]::new($false))
+            Write-Host "• Schema '$SchemaName' toegevoegd aan supabase\config.toml" -ForegroundColor Green
+        } else {
+            Write-Host "• Schema '$SchemaName' stond al in supabase\config.toml" -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Warning "Kon 'schemas = [...]' niet vinden in $ConfigTomlPath. Voeg '$SchemaName' handmatig toe."
+    }
+}
 
 Write-Host "`n==========================================================" -ForegroundColor Cyan
 Write-Host "Flutter Spoke App '$Name' is 100% klaar!" -ForegroundColor Green
@@ -814,11 +825,14 @@ Write-Host "• GitHub Gids  : $TargetDir\docs\GITHUB_SETUP.md"
 Write-Host "• CI/CD Workfl : $TargetDir\.github\workflows\deploy_web.yml"
 Write-Host "• Apache SPA   : $TargetDir\web\.htaccess"
 Write-Host "• DB Migratie  : $MigrationFile"
+Write-Host "• API Schema   : $SchemaName (toegevoegd aan supabase\config.toml)"
 Write-Host "`nVolgende stappen:"
 Write-Host "1. Plak je output uit het Gemini Notebook in: $TargetDir\docs\SPECIFICATION.md"
-Write-Host "2. Raadpleeg $TargetDir\docs\TESTING.md voor de 4 testscenario's en 8 seed testaccounts"
-Write-Host "3. Maak een lege repo aan op GitHub (https://github.com/new) genaamd '$Name'"
-Write-Host "4. Push direct via: cd $TargetDir; git remote add origin https://github.com/SchrobbeD/$Name.git; git push -u origin main"
-Write-Host "5. Open de map in Antigravity om direct met de Roadmap en PoC te starten!"
-Write-Host "6. CI/CD: Voeg de 6 secrets toe op GitHub voor automatische web deployment (zie docs/GITHUB_SETUP.md)"
+Write-Host "2. Lokaal Supabase bijwerken in SchrobbeDock: npx supabase migration up (en herstart supabase bij config.toml-wijziging)"
+Write-Host "3. Cloud Productie: Voeg '$SchemaName' toe in Supabase Cloud -> Project Settings -> Data API -> Exposed schemas"
+Write-Host "4. Raadpleeg $TargetDir\docs\TESTING.md voor de 4 testscenario's en 8 seed testaccounts"
+Write-Host "5. Maak een lege repo aan op GitHub (https://github.com/new) genaamd '$Name'"
+Write-Host "6. Push direct via: cd $TargetDir; git remote add origin https://github.com/SchrobbeD/$Name.git; git push -u origin main"
+Write-Host "7. Open de map in Antigravity om direct met de Roadmap en PoC te starten!"
+Write-Host "8. CI/CD: Voeg de 6 secrets toe op GitHub voor automatische web deployment (zie docs/GITHUB_SETUP.md)"
 Write-Host "==========================================================" -ForegroundColor Cyan

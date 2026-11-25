@@ -68,6 +68,7 @@ DECLARE
         {
             "id": "33333333-3333-3333-3333-333333333333",
             "email": "user1@hub.local",
+            "invite_code": "INVITE-USER1-SEED",
             "first_name": "Jan",
             "last_name": "Jansen",
             "theme_mode": "system",
@@ -79,6 +80,7 @@ DECLARE
         {
             "id": "44444444-4444-4444-4444-444444444444",
             "email": "user2@hub.local",
+            "invite_code": "INVITE-USER2-SEED",
             "first_name": "Sophie",
             "last_name": "Peeters",
             "theme_mode": "dark",
@@ -90,6 +92,7 @@ DECLARE
         {
             "id": "55555555-5555-5555-5555-555555555555",
             "email": "user3@hub.local",
+            "invite_code": "INVITE-USER3-SEED",
             "first_name": "Thomas",
             "last_name": "De Smet",
             "theme_mode": "system",
@@ -101,6 +104,7 @@ DECLARE
         {
             "id": "66666666-6666-6666-6666-666666666666",
             "email": "user4@hub.local",
+            "invite_code": "INVITE-USER4-SEED",
             "first_name": "Lukas",
             "last_name": "Vermeulen",
             "theme_mode": "dark",
@@ -112,6 +116,7 @@ DECLARE
         {
             "id": "77777777-7777-7777-7777-777777777777",
             "email": "user5@hub.local",
+            "invite_code": "INVITE-USER5-SEED",
             "first_name": "Emma",
             "last_name": "Claes",
             "theme_mode": "light",
@@ -123,6 +128,7 @@ DECLARE
         {
             "id": "88888888-8888-8888-8888-888888888888",
             "email": "user6@hub.local",
+            "invite_code": "INVITE-USER6-SEED",
             "first_name": "Dries",
             "last_name": "Wouters",
             "theme_mode": "system",
@@ -134,6 +140,7 @@ DECLARE
         {
             "id": "99999999-9999-9999-9999-999999999999",
             "email": "user7@hub.local",
+            "invite_code": "INVITE-USER7-SEED",
             "first_name": "Sanne",
             "last_name": "Jacobs",
             "theme_mode": "system",
@@ -161,14 +168,17 @@ BEGIN
             crypt('password123', gen_salt('bf')),
             NOW(), NOW(), NOW(),
             '{"provider":"email","providers":["email"]}',
-            jsonb_build_object(
-                'first_name', u->>'first_name',
-                'last_name', u->>'last_name',
-                'preferences', jsonb_build_object(
-                    'theme_mode', u->>'theme_mode',
-                    'primary_color', u->>'primary_color',
-                    'secondary_color', u->>'secondary_color',
-                    'preset', u->>'preset'
+            jsonb_strip_nulls(
+                jsonb_build_object(
+                    'first_name', u->>'first_name',
+                    'last_name', u->>'last_name',
+                    'invite_code', u->>'invite_code',
+                    'preferences', jsonb_build_object(
+                        'theme_mode', u->>'theme_mode',
+                        'primary_color', u->>'primary_color',
+                        'secondary_color', u->>'secondary_color',
+                        'preset', u->>'preset'
+                    )
                 )
             ),
             NOW(), NOW(),

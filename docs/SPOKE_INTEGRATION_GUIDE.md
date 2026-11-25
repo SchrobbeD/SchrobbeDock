@@ -79,7 +79,7 @@ dependencies:
     git:
       url: https://github.com/SchrobbeD/SchrobbeDock.git
       path: packages/schrobbedock_auth
-      ref: auth-v1.0.0
+      ref: auth-v1.0.1
 ```
 
 #### 2. LicenseGate & UserMenu inzetten:
@@ -126,6 +126,11 @@ CREATE TABLE app_planner.projects (
 ALTER TABLE app_planner.projects ENABLE ROW LEVEL SECURITY;
 ```
 
+#### PostgREST Schema Expositie (Vereist voor Data API):
+Om tabellen in `app_<slug>` via `.schema('app_<slug>')` vanuit de Flutter client aan te spreken, moet PostgREST dit schema kennen:
+* **Lokaal (`supabase/config.toml`)**: Voeg `"app_<slug>"` toe aan `schemas = [...]` onder `[api]` (dit gebeurt automatisch bij gebruik van `scripts/create_spoke.ps1`; herstart lokale Supabase als deze al draaide).
+* **Productie (Supabase Cloud)**: Voeg `app_<slug>` toe onder **Project Settings ➔ Data API ➔ Exposed schemas**.
+
 #### Strikte Row Level Security (RLS) Policy:
 Zorg dat gebruikers enkel rijen kunnen lezen of bewerken als zij over een **actieve licentie** voor deze specifieke app beschikken:
 
@@ -165,24 +170,25 @@ dependencies:
 ```
 
 #### 2. Themacontroller koppelen in Flutter:
-De themamodule leest de voorkeuren direct uit `auth.users.raw_user_meta_data.preferences` (via de Supabase JWT). Hierdoor heeft de Spoke app 0 latency en neemt direct de Dark/Light mode en de gekozen accentkleur van de gebruiker over.
+De themamodule synchroniseert via `profiles.preferences` en `SharedPreferences` (met 0 ms lokale cache-opstart). Voor Riverpod-apps gebruik je `themePreferencesProvider` en `AppTheme`:
 
 ```dart
-// Framework-agnostisch (ChangeNotifier):
-final themeController = SchrobbeDockThemeController(
-  initialPreferences: UserThemePreferences.fromMap(
-    supabase.auth.currentUser?.userMetadata?['preferences'] as Map<String, dynamic>?,
-  ),
-);
+import 'package:schrobbedock_theme/schrobbedock_theme_riverpod.dart';
 
-// In MaterialApp:
+// In MaterialApp (binnen ConsumerWidget):
+final themePrefs = ref.watch(themePreferencesProvider);
+
 MaterialApp(
-  theme: SchrobbeDockTheme.buildLightTheme(themeController.preferences),
-  darkTheme: SchrobbeDockTheme.buildDarkTheme(themeController.preferences),
-  themeMode: themeController.preferences.themeMode,
+  theme: AppTheme.buildLightTheme(themePrefs),
+  darkTheme: AppTheme.buildDarkTheme(themePrefs),
+  themeMode: themePrefs.preset == 'rob_hub'
+      ? ThemeMode.dark
+      : themePrefs.themeMode,
   ...
 );
 ```
+
+*(Werk je zonder Riverpod? Gebruik dan `SchrobbeDockThemeController` + `SchrobbeDockThemeScope` met `AppTheme.buildLightTheme(themeController.preferences)`.)*
 
 ---
 
@@ -197,7 +203,7 @@ dependencies:
     git:
       url: https://github.com/SchrobbeD/SchrobbeDock.git
       path: packages/schrobbedock_feedback
-      ref: feedback-v1.2.0 # Pin altijd op een stabiele release tag!
+      ref: feedback-v1.3.0 # Pin altijd op een stabiele release tag!
 ```
 
 #### 2. Eenvoudige Integratie (1 Regel Code):
@@ -258,11 +264,11 @@ Configureer in GitHub onder **Settings** ➔ **Secrets and variables** ➔ **Act
 Controleer voor elke nieuwe Spoke app de volgende punten:
 
 - [ ] Record aangemaakt in `public.apps` met correcte `github_repo_owner` en `github_repo_name`.
-- [ ] PostgREST schema permissions geconfigureerd (`GRANT USAGE ON SCHEMA app_<slug> TO authenticated`).
+- [ ] PostgREST schema permissions geconfigureerd (`GRANT USAGE ON SCHEMA app_<slug> TO authenticated`) en schema geëxposeerd (`supabase/config.toml` lokaal + Supabase Cloud *Exposed schemas*).
 - [ ] Row Level Security (RLS) policies gevalideerd tegen `public.user_licenses`.
-- [ ] `packages/schrobbedock_auth` geïmplementeerd (`LicenseGate` + `SchrobbeDockUserMenu`).
+- [ ] `packages/schrobbedock_auth` geïmplementeerd (`LicenseGate` + `SchrobbeDockUserMenu`) en gepind op `auth-v1.0.1`.
 - [ ] `packages/schrobbedock_theme` gepind op een stabiele `theme-vX.Y.Z` Git tag (`theme-v1.1.0`).
-- [ ] `packages/schrobbedock_feedback` geconfigureerd met de juiste `appSlug`.
+- [ ] `packages/schrobbedock_feedback` gepind op `feedback-v1.3.0` en geconfigureerd met de juiste `appSlug`.
 - [ ] Ongeautoriseerde bezoeken worden via `LicenseGate` netjes afgehandeld (met `claim_invitation` en `request_app_access`).
 - [ ] Apache SPA routing configuratie (`web/.htaccess`) aanwezig.
 - [ ] GitHub Actions CI/CD pipeline (`.github/workflows/deploy_web.yml`) geconfigureerd met repository secrets.

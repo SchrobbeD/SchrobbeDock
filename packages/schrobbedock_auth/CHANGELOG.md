@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+* **Onafhankelijke Git-tag pinning hersteld**:
+  * Ongebruikte relatieve `path:` dependency op `schrobbedock_theme` verwijderd zodat Spoke apps `schrobbedock_auth` en `schrobbedock_theme` onafhankelijk via Git release tags kunnen pinnen zonder Dart Pub versieconflicten.
+
 ## 1.0.0
 
 * **Initiële release van `schrobbedock_auth`**:
